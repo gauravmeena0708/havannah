@@ -696,7 +696,8 @@ function startGame() {
 // Update the makeMove function to also render the table after each move
 function makeMove(row, col) {
   board[row][col] = currentPlayer + 1; // Player 1 is Yellow, Player 2 is Red
-  drawBoard(board); // Note: This ideally should be drawBoardState
+  //drawBoard(board); // Note: This ideally should be drawBoardState
+  drawBoardState(board);
   // renderGameTable(board); // Update the table after each move - REMOVED
 
   const [win, structure] = checkWin(board, [row, col], currentPlayer + 1);
@@ -716,7 +717,8 @@ function checkForTie(board) {
 // Update the makeMove function to check for a tie after each move
 function makeMove(row, col) {
   board[row][col] = currentPlayer + 1; // Player 1 is Yellow, Player 2 is Red
-  drawBoard(board); // Note: This ideally should be drawBoardState
+  //drawBoard(board); // Note: This ideally should be drawBoardState
+  drawBoardState(board);
   // renderGameTable(board); // Update the table after each move - REMOVED
 
   // Check if the current move results in a win
