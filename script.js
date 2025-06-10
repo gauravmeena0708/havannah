@@ -370,24 +370,15 @@ function bfsReachable(board, start) {
 // Fixing edges identification
 function getAllEdges(dim) {
   const siz = Math.floor((dim + 1) / 2);
-  const sides = [
-    Array.from({ length: siz - 2 }, (_, i) => `${0},${i + 1}`), // Top edge (excluding corners)
-    Array.from({ length: dim - siz - 1 }, (_, i) => `${i + 1},${dim - 1}`), // Right edge
-    Array.from({ length: siz - 2 }, (_, i) => `${dim - 1},${siz + i}`), // Bottom edge (excluding corners)
-    Array.from({ length: siz - 2 }, (_, i) => `${siz - 1 + i},${0}`), // Left edge (excluding corners)
+  const edges = [
+    Array.from({ length: siz }, (_, i) => [i, 0]), // Left edge
+    Array.from({ length: siz }, (_, i) => [0, i]), // Top-left edge
+    Array.from({ length: siz }, (_, i) => [i, i + siz - 1]), // Top-right edge
+    Array.from({ length: siz }, (_, i) => [i + siz - 1, dim - 1]), // Right edge
+    Array.from({ length: dim - siz }, (_, i) => [dim - 1, i + siz - 1]), // Bottom-right edge
+    Array.from({ length: dim - siz }, (_, i) => [i + siz - 1, i]), // Bottom-left edge
   ];
-  return sides.map((edge) => new Set(edge));
-}
-
-function getAllEdges(dim) {
-  const siz = Math.floor((dim + 1) / 2);
-  const sides = [
-    Array.from({ length: siz }, (_, i) => `${0},${i}`), // Top edge
-    Array.from({ length: siz }, (_, i) => `${i},${dim - 1}`), // Right edge
-    Array.from({ length: siz }, (_, i) => `${dim - 1},${siz + i - 1}`), // Bottom edge
-    Array.from({ length: siz }, (_, i) => `${siz - 1 + i},${0}`), // Left edge
-  ];
-  return sides.map((edge) => new Set(edge));
+  return edges.map((edge) => new Set(edge.map((e) => `${e[0]},${e[1]}`)));
 }
 
 // Helper function to check if a side has reachable points
@@ -585,53 +576,30 @@ function getAllCorners(dim) {
 }
 
 function getEdge(vertex, dim) {
-  /*
-        Returns the edge number on which the vertex lies.
-    
-        Parameters:
-        - vertex (Array): The coordinates of the vertex [i, j]
-        - dim (int): The dimension of the board
-    
-        Returns:
-        - int: Edge number (0 to 5), or -1 if the vertex is not on an edge.
-      */
+    let [i, j] = vertex;
+    const mid = Math.floor(dim / 2);
 
-  let [i, j] = vertex;
-  const mid = Math.floor(dim / 2);
-
-  if (j === 0 && i > 0 && i < mid) return 0; // Left edge
-  if (i === 0 && j > 0 && j < mid) return 1; // Top-left edge
-  if (i === 0 && j > mid && j < dim - 1) return 2; // Top-right edge
-  if (j === dim - 1 && i > 0 && i < mid) return 3; // Right edge
-  if (i > mid && i < dim - 1 && i + j === 3 * mid) return 4; // Bottom-right edge
-  if (i > mid && i < dim - 1 && i - j === mid) return 5; // Bottom-left edge
-
-  return -1; // If the vertex does not lie on any edge
+    if (j === 0 && i > 0 && i < mid) return 0; // Left
+    if (i === 0 && j > 0 && j < mid) return 1; // Top-left
+    if (i > 0 && i < mid && i === j) return 2; // Top-right
+    if (j === dim - 1 && i > mid && i < dim - 1) return 3; // Right
+    if (i === dim - 1 && j > mid && j < dim - 1) return 4; // Bottom-right
+    if (i > mid && i < dim - 1 && i - j === mid) return 5; // Bottom-left
+    return -1;
 }
 
 function getCorner(vertex, dim) {
-  /*
-        Returns the corner number on which the vertex lies.
-    
-        Parameters:
-        - vertex (Array): The coordinates of the vertex [i, j]
-        - dim (int): The dimension of the board
-    
-        Returns:
-        - int: Corner number (0 to 5), or -1 if the vertex is not on a corner.
-      */
-
   let [i, j] = vertex;
   const mid = Math.floor(dim / 2);
 
-  if (i === 0 && j === 0) return 0; // Top-left corner
-  if (i === 0 && j === mid) return 1; // Top middle corner
-  if (i === 0 && j === dim - 1) return 2; // Top-right corner
-  if (i === mid && j === dim - 1) return 3; // Right middle corner
-  if (i === dim - 1 && j === mid) return 4; // Bottom middle corner
-  if (i === mid && j === 0) return 5; // Left middle corner
+  if (i === 0 && j === 0) return 0; // Top-left
+  if (i === 0 && j === mid) return 1; // Top-middle
+  if (i === mid && j === dim - 1) return 2; // Top-right
+  if (i === dim - 1 && j === dim - 1) return 3; // Bottom-right
+  if (i === dim - 1 && j === mid) return 4; // Bottom-middle
+  if (i === mid && j === 0) return 5; // Bottom-left
 
-  return -1; // If the vertex does not lie on any corner
+  return -1;
 }
 
 function moveCoordinates(direction, half) {
