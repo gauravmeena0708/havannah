@@ -1,11 +1,9 @@
-class AIPlayer2 {
+class AIPlayer2 extends BaseAI {
   constructor(playerNumber, simulations = 150) {
-    this.playerNumber = playerNumber;
-    this.opponentNumber = playerNumber === 1 ? 2 : 1;
-    this.simulations = simulations;
+    super(playerNumber, playerNumber === 1 ? 2 : 1, simulations);
     this.moveCounter = 0;
     this.size = 0;
-    this.criticalBlocks = this.getCriticalBlocks(); // Initialize critical blocks
+    this.criticalBlocks = []; // Initialize critical blocks as empty, will be populated in getMove if applicable
   }
 
   // Define the critical blocks based on the game board size
@@ -103,11 +101,19 @@ class AIPlayer2 {
   }
 
   getMove(state) {
-    if (this.moveCounter === 0) {
-      this.size = (state.length + 1) / 2;
+    this.moveCounter++; // Increment move counter at the beginning
+
+    if (this.moveCounter === 1) { // First move for this AI instance
+      const currentLayers = (state.length + 1) / 2;
+      this.size = currentLayers; // Set the size property
+      if (currentLayers === 4) {
+        this.criticalBlocks = this.getCriticalBlocks();
+      } else {
+        this.criticalBlocks = []; // Ensure it's empty for other sizes
+      }
     }
-    this.moveCounter++;
-    console.log(state);
+
+    // console.log(state); // Optional: for debugging
     const validActions = this.getValidActions(state);
 
     // Check for immediate winning move for AI
@@ -173,86 +179,5 @@ class AIPlayer2 {
     }
 
     return bestActions[Math.floor(Math.random() * bestActions.length)];
-  }
-
-  getValidActions(state) {
-    const validMoves = [];
-    for (let i = 0; i < state.length; i++) {
-      for (let j = 0; j < state[i].length; j++) {
-        if (state[i][j] === 0) {
-          validMoves.push([i, j]);
-        }
-      }
-    }
-    return validMoves;
-  }
-
-  evaluateOpponentThreat(state, opponentMoves) {
-    let maxOpponentThreatScore = 0;
-    for (const opponentMove of opponentMoves) {
-      state[opponentMove[0]][opponentMove[1]] = this.opponentNumber;
-      const [win] = checkWin(state, opponentMove, this.opponentNumber);
-      if (win) {
-        maxOpponentThreatScore = Math.max(maxOpponentThreatScore, 100);
-      }
-      state[opponentMove[0]][opponentMove[1]] = 0;
-    }
-    return maxOpponentThreatScore;
-  }
-
-  assignHeuristicScore(state, action) {
-    let score = 0;
-    const dim = state.length;
-    state[action[0]][action[1]] = this.playerNumber;
-
-    if (getEdge(action, dim) !== -1) {
-      score += 2;
-    }
-    if (getCorner(action, dim) !== -1) {
-      score += 3;
-    }
-
-    const [win, structure] = checkWin(state, action, this.playerNumber);
-    if (win) {
-      score += structure === "fork" || structure === "ring" ? 200 : 150;
-    }
-
-    state[action[0]][action[1]] = 0;
-    return score;
-  }
-
-  runMonteCarloSimulations(state, action) {
-    let winCount = 0;
-    let lossCount = 0;
-
-    for (let i = 0; i < this.simulations; i++) {
-      const simulationState = JSON.parse(JSON.stringify(state));
-      simulationState[action[0]][action[1]] = this.playerNumber;
-      const winner = this.simulateRandomGame(simulationState);
-      if (winner === this.playerNumber) {
-        winCount++;
-      } else if (winner === this.opponentNumber) {
-        lossCount++;
-      }
-    }
-
-    return (winCount - lossCount) * 10;
-  }
-
-  simulateRandomGame(state) {
-    let currentPlayer = this.opponentNumber;
-    while (true) {
-      const validActions = this.getValidActions(state);
-      if (validActions.length === 0) return 0;
-      const action =
-        validActions[Math.floor(Math.random() * validActions.length)];
-      state[action[0]][action[1]] = currentPlayer;
-      const [win] = checkWin(state, action, currentPlayer);
-      if (win) return currentPlayer;
-      currentPlayer =
-        currentPlayer === this.playerNumber
-          ? this.opponentNumber
-          : this.playerNumber;
-    }
   }
 }

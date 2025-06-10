@@ -70,8 +70,8 @@
                         </p>
 
                         <div class="mb-3">
-                            <label for="sizeSelect" class="form-label" hidden>Select Board Size:</label>
-                            <select id="sizeSelect" class="form-select" hidden>
+                            <label for="sizeSelect" class="form-label">Select Board Size:</label>
+                            <select id="sizeSelect" class="form-select">
                                 <option value="4">4</option>
                                 <option value="6">6</option>
                                 <option value="8">8</option>
@@ -96,8 +96,7 @@
                             <div id="winner" class="mt-2"></div>
                         </div>
 
-                        <!-- Table to display the board -->
-                        <table id="gameTable" class="table table-bordered"></table>
+                        <!-- Table to display the board (REMOVED) -->
                     </div>
                 </div>
             </div>
@@ -128,9 +127,11 @@
 
     
     <!-- Your existing game scripts -->
+    <script src="base_ai.js"></script>
     <script src="ai.js"></script> <!-- Include ai.js for AI functionality -->
     <script src="ai2.js"></script>
     <script src="script.js"></script>
+    <script src="tests.js"></script> <!-- To run tests, open browser console and type runAllTests() -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6244557364993858"
     crossorigin="anonymous"></script>
 </body>

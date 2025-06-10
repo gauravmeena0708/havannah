@@ -9,6 +9,7 @@ let intervalId;
 let hexSize;
 let aiPlayer2 = null; // AI for Player 2
 let isPlayer2AI = false; // To check if Player 2 is AI
+let animationFrameId = null; // For managing particle animation frame
 
 document.getElementById("startGameBtn").addEventListener("click", startGame);
 
@@ -21,7 +22,14 @@ function startGame() {
   playerTime = [300, 300];
   document.getElementById("winner").textContent = "";
   document.getElementById("currentTurn").textContent = "Current Turn: Player 1";
-  drawBoard(board);
+
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+    particles = []; // Clear any existing particles
+  }
+
+  drawBoardState(board); // Changed from drawBoard
   if (intervalId) clearInterval(intervalId);
   intervalId = setInterval(updateTimer, 1000); // Update timer every second
 
@@ -52,7 +60,7 @@ function adjustCanvasSize(layers) {
   canvas.height = canvasSize;
 }
 
-function createInitialBoard(layers, numBlockedTiles) {
+function createInitialBoard(layers) {
   const board = [];
 
   // Initialize the board with empty cells (0 represents empty)
@@ -73,21 +81,10 @@ function createInitialBoard(layers, numBlockedTiles) {
     }
   }
 
-  // Randomly block additional tiles if specified
-  if (numBlockedTiles > 0) {
-    for (let i = 0; i < numBlockedTiles; i++) {
-      let row, col;
-      do {
-        row = Math.floor(Math.random() * (2 * layers - 1));
-        col = Math.floor(Math.random() * (2 * layers - 1));
-      } while (board[row][col] !== 0); // Ensure that we don't overwrite an already blocked tile
-      board[row][col] = 3; // Block the randomly selected tile
-    }
-  }
   return board;
 }
 
-function drawBoard(board) {
+function drawBoardState(board) { // Renamed from drawBoard
   context.clearRect(0, 0, canvas.width, canvas.height);
   for (let j = 0; j < 2 * layers - 1; j++) {
     const colSize = j < layers ? layers + j : layers + 2 * layers - 2 - j;
@@ -98,8 +95,7 @@ function drawBoard(board) {
       drawHexagon(hexCoords, color, i, j);
     }
   }
-  // Draw particles (sparkles)
-  drawParticles();
+  // Removed drawParticles() call from here
 }
 
 function calculateHexagon(i, j) {
@@ -121,11 +117,26 @@ function drawHexagon(coords, fillColor, row, col) {
   context.moveTo(coords[0].x, coords[0].y);
   coords.forEach((point) => context.lineTo(point.x, point.y));
   context.closePath();
-  context.fillStyle = fillColor || "white";
+
+  const centroid = calculateCentroid(coords); // Calculate centroid for gradients and text
+
+  if (fillColor === "yellow") {
+    const gradient = context.createRadialGradient(centroid.x, centroid.y, hexSize * 0.1, centroid.x, centroid.y, hexSize * 0.75);
+    gradient.addColorStop(0, '#FFFFE0'); // Light yellow
+    gradient.addColorStop(1, 'gold');
+    context.fillStyle = gradient;
+  } else if (fillColor === "red") {
+    const gradient = context.createRadialGradient(centroid.x, centroid.y, hexSize * 0.1, centroid.x, centroid.y, hexSize * 0.75);
+    gradient.addColorStop(0, '#FFEEEE'); // Light pink/red
+    gradient.addColorStop(1, 'red');
+    context.fillStyle = gradient;
+  } else {
+    context.fillStyle = fillColor || "white";
+  }
+
   context.fill();
   context.stroke();
 
-  const centroid = calculateCentroid(coords);
   context.fillStyle = "black";
   context.font = "12px Arial";
   context.fillText(`(${row},${col})`, centroid.x - 10, centroid.y + 4);
@@ -220,7 +231,7 @@ function switchPlayer() {
 
 function makeMove(row, col) {
   board[row][col] = currentPlayer + 1; // Player 1 is Yellow, Player 2 is Red
-  drawBoard(board);
+  drawBoardState(board); // Changed from drawBoard
 
   const [win, structure] = checkWin(board, [row, col], currentPlayer + 1);
   if (win) {
@@ -241,45 +252,61 @@ function handleAITurn() {
 
 function endGame(winner, structure) {
   gameOver = true;
-  const winnerColor = winner === 1 ? "yellow" : "red";
-  canvas.style.border = `5px solid ${winnerColor}`; // Change canvas border to winning player's color
+  const winnerColorString = winner === 1 ? "yellow" : "red";
+  canvas.style.border = `5px solid ${winnerColorString}`; // Change canvas border to winning player's color
   document.getElementById(
     "currentTurn"
   ).textContent = `Game Over! Player ${winner} wins by ${structure}!`;
 
   // Trigger the celebration (sparkle effect)
-  triggerCelebration();
+  triggerCelebration(winnerColorString); // Pass winner color
   alert(`Player ${winner} won!!`); // Alert the winner
 }
 
 // Sparkle/celebration effect
-function triggerCelebration() {
+function triggerCelebration(winnerColor) { // Accepts winnerColor
+  particles = []; // Clear previous particles
   for (let i = 0; i < 100; i++) {
     // Create 100 particles
-    particles.push(createParticle());
+    particles.push(createParticle(winnerColor)); // Pass winnerColor
+  }
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId); // Cancel any existing animation
   }
   animateParticles();
 }
 
-function createParticle() {
+function createParticle(baseColor) { // Accepts baseColor
+  let hue;
+  let lightness = Math.random() * 20 + 50; // 50-70%
+
+  if (baseColor === "yellow") {
+    hue = Math.random() * 15 + 45; // Hues 45-60 for yellow/gold
+  } else if (baseColor === "red") {
+    hue = Math.random() * 15; // Hues 0-15 for red (can also wrap around 345-360)
+  } else {
+    hue = Math.random() * 360; // Default fallback
+  }
+
   return {
     x: canvas.width / 2,
     y: canvas.height / 2,
     radius: Math.random() * 4 + 2, // Random radius
-    color: `hsl(${Math.random() * 360}, 100%, 50%)`, // Random color
+    color: `hsl(${hue}, 100%, ${lightness}%)`, // Themed color
     speedX: Math.random() * 5 - 2.5, // Random speed X
     speedY: Math.random() * 5 - 2.5, // Random speed Y
     life: 100, // Lifespan of the particle
   };
 }
 
-function drawParticles() {
+// New function for updating and drawing particles
+function updateAndDrawParticles(ctx) {
   particles.forEach((particle, index) => {
-    context.beginPath();
-    context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
-    context.fillStyle = particle.color;
-    context.fill();
-    context.closePath();
+    ctx.beginPath();
+    ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+    ctx.fillStyle = particle.color;
+    ctx.fill();
+    ctx.closePath();
 
     // Update particle position and reduce life
     particle.x += particle.speedX;
@@ -294,15 +321,34 @@ function drawParticles() {
 }
 
 function animateParticles() {
-  if (particles.length > 0) {
-    drawBoard(board); // Redraw the board
-    requestAnimationFrame(animateParticles);
+  if (particles.length === 0) {
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    return; // Stop animation if no particles left
   }
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  drawBoardState(board); // Redraw the board state
+  updateAndDrawParticles(context); // Update and draw particles
+  animationFrameId = requestAnimationFrame(animateParticles); // Continue loop
 }
 
 // Helper function to check if coordinates are valid
 function isValid(x, y, dim) {
-  return 0 <= x && x < dim && 0 <= y && y < dim;
+  // dim is 2 * layers - 1 (total rows or columns in the board array)
+  // y is the column index, x is the row index within that column
+
+  if (y < 0 || y >= dim) {
+    return false; // y is out of bounds for the entire board array
+  }
+
+  // Calculate the actual height of the current column y
+  // This logic is based on how the hexagonal board is structured
+  const colHeight = (y < layers) ? (layers + y) : (layers + (2 * layers - 2) - y);
+
+  // Check if x is within the valid range for this specific column
+  return 0 <= x && x < colHeight;
 }
 
 // Helper function to get all valid moves
@@ -403,35 +449,6 @@ function checkFork(board, move) {
   return reachableEdges.length >= 3;
 }
 
-function checkFork(board, move) {
-  const dim = board.length;
-  const visited = bfsReachable(board, move);
-  const edges = getAllEdges(dim);
-  const move_i = move[0],
-    move_j = move[1];
-
-  // Manually check if the move itself is on any edge
-  let edgesTouchedByMove = 0;
-  for (const edge of edges) {
-    if (edge.has(`${move_i},${move_j}`)) {
-      edgesTouchedByMove++;
-    }
-  }
-
-  // Count reachable edges, excluding those already counted by the move itself
-  let reachableEdges = 0;
-  for (const edge of edges) {
-    if (edge.has(`${move_i},${move_j}`)) continue; // Skip if the edge was already counted
-    if (sideHasReachablePoints(edge, visited)) {
-      reachableEdges++;
-    }
-  }
-
-  // A fork is detected if the move touches at least 3 edges 
-  // or if the move touches fewer than 3 edges but the total (including reachable edges) is 3 or more
-  return edgesTouchedByMove >= 3 || edgesTouchedByMove + reachableEdges >= 3;
-}
-
 // Function to check both fork and bridge in a single move
 function checkForkAndBridge(board, move) {
   const visited = bfsReachable(board, move);
@@ -477,80 +494,73 @@ function checkWin(board, move, playerNum) {
 }
 
 function checkRing(board, move) {
-  /*
-        Check whether a ring is formed by the move.
-    
-        Parameters:
-        - board (Array[Array[bool]]): Game board with true values at the positions of the player and false elsewhere
-        - move (Array[int, int]): Position of the move. Must have already been played (marked on the board)
-    
-        Returns:
-        - bool: True if a ring is formed by the move, False otherwise
-      */
+  const dim = board.length;
+  const [moveR, moveC] = move;
 
-  const dim = board.length; // Get the dimension of the board
-  const siz = Math.floor(dim / 2); // Determine the half of the board
-  const initMove = move;
-  const directions = ["up", "top-left", "bottom-left", "down"];
-  const visited = new Set();
+  // 1. Get all neighbors of `move` that are also the player's stones
+  const allNeighbors = getNeighbours(dim, move);
+  const playerNeighbors = allNeighbors.filter(([nr, nc]) => {
+    return isValid(nr, nc, dim) && board[nr][nc];
+  });
 
-  // Get neighbors of the move
-  let neighbours = getNeighbours(dim, move);
-  neighbours = neighbours.map(([x, y]) => board[x][y]);
-
-  // If less than 2 valid neighbors, return false
-  if (neighbours.filter(Boolean).length < 2) {
+  // 2. If `playerNeighbors.length < 2`, return `false`.
+  if (playerNeighbors.length < 2) {
     return false;
   }
 
-  // Start exploration in 4 contiguous directions
-  let exploration = [];
-  for (let direction of directions) {
-    let [x, y] = move;
-    let half = Math.sign(move[1] - siz); // 0 for mid, -1 for left, 1 for right
-    const [dx, dy] = moveCoordinates(direction, half);
-    const nx = x + dx,
-      ny = y + dy;
+  // 3. For each distinct pair of `playerNeighbors` (n1, n2):
+  for (let i = 0; i < playerNeighbors.length; i++) {
+    for (let j = i + 1; j < playerNeighbors.length; j++) {
+      const n1 = playerNeighbors[i];
+      const n2 = playerNeighbors[j];
+      const [n1r, n1c] = n1;
+      const [n2r, n2c] = n2;
 
-    if (isValid(nx, ny, dim) && board[nx][ny]) {
-      exploration.push([[nx, ny], direction]);
-      visited.add(`${nx},${ny},${direction}`);
-    }
-  }
+      // a. Perform a BFS starting from `n1` to find a path to `n2`.
+      const queue = [ [n1, [n1]] ]; // Store [currentCell, path_to_currentCell]
+      const visitedInBFS = new Set();
+      visitedInBFS.add(`${moveR},${moveC}`); // c. BFS must NOT go through the original `move` cell.
+      visitedInBFS.add(`${n1r},${n1c}`);
 
-  let ringLength = 1;
-  // Continue exploration in forward directions
-  while (exploration.length !== 0) {
-    let newExp = [];
+      while (queue.length > 0) {
+        const [currentCell, currentPath] = queue.shift();
+        const [cr, cc] = currentCell;
 
-    for (const [currentMove, prevDirection] of exploration) {
-      let [x, y] = currentMove;
-      let half = Math.sign(y - siz);
-      const newDirections = threeForwardMoves(prevDirection);
-
-      for (let direction of newDirections) {
-        const [dx, dy] = moveCoordinates(direction, half);
-        const nx = x + dx,
-          ny = y + dy;
-
-        if (
-          isValid(nx, ny, dim) &&
-          board[nx][ny] &&
-          !visited.has(`${nx},${ny},${direction}`)
-        ) {
-          if (initMove[0] === nx && initMove[1] === ny && ringLength >= 5) {
-            return true; // Ring detected
+        if (cr === n2r && cc === n2c) { // Path to n2 found
+          // d. cycle: move -> n1 -> ...path... -> n2 -> move
+          // e. length of this cycle is currentPath.length + 1 (n1 is in currentPath, +1 for original move)
+          // The problem statement says "path.length + 1 >= 6" where path is p1...pk (n1 to n2).
+          // So, currentPath.length is the number of nodes from n1 to n2 inclusive.
+                          // The cycle is move -> n1(=p1) -> p2 ... -> pk(=n2) -> move
+                          // The number of nodes in cycle is currentPath.length (nodes from n1 to n2) + 1 (the initial 'move' node)
+          if (currentPath.length + 1 >= 6) {
+            // f. If cycle length >= 6, return true.
+            return true;
           }
-          newExp.push([[nx, ny], direction]);
-          visited.add(`${nx},${ny},${direction}`);
+          // Found a path, but it's too short for a ring. Break from this BFS.
+          break;
+        }
+
+        const neighborsOfCurrent = getNeighbours(dim, currentCell);
+        for (const neighbor of neighborsOfCurrent) {
+          const [nr, nc] = neighbor;
+          const neighborStr = `${nr},${nc}`;
+
+          if (
+            isValid(nr, nc, dim) &&       // Valid cell
+            board[nr][nc] &&              // Is player's stone
+            !visitedInBFS.has(neighborStr) // Not visited in THIS BFS path search and not the original 'move'
+          ) {
+            visitedInBFS.add(neighborStr);
+            const newPath = [...currentPath, neighbor];
+            queue.push([neighbor, newPath]);
+          }
         }
       }
     }
-
-    exploration = newExp;
-    ringLength += 1;
   }
 
+  // 4. If no such cycle is found after checking all pairs, return `false`.
   return false;
 }
 
@@ -653,33 +663,6 @@ function threeForwardMoves(direction) {
   return [];
 }
 
-// Add this function to render the game board in the table
-function renderGameTable(board) {
-  const gameTable = document.getElementById("gameTable");
-  gameTable.innerHTML = ""; // Clear previous table content
-
-  board.forEach((row, rowIndex) => {
-    const tr = document.createElement("tr");
-    row.forEach((cell, colIndex) => {
-      const td = document.createElement("td");
-      if (cell === 1) {
-        td.textContent = "Y"; // Player 1 (Yellow)
-        td.style.backgroundColor = "yellow";
-      } else if (cell === 2) {
-        td.textContent = "R"; // Player 2 (Red)
-        td.style.backgroundColor = "red";
-      } else if (cell === 3) {
-        td.textContent = "B"; // Blocked tiles
-        td.style.backgroundColor = "gray";
-      } else {
-        td.textContent = ""; // Empty cell
-      }
-      tr.appendChild(td);
-    });
-    gameTable.appendChild(tr);
-  });
-}
-
 // Update the startGame function to render the initial board
 function startGame() {
   layers = parseInt(document.getElementById("sizeSelect").value);
@@ -690,8 +673,8 @@ function startGame() {
   playerTime = [300, 300];
   document.getElementById("winner").textContent = "";
   document.getElementById("currentTurn").textContent = "Current Turn: Player 1";
-  drawBoard(board);
-  renderGameTable(board); // Render the initial board in the table
+  drawBoard(board); // Note: This ideally should be drawBoardState
+  // renderGameTable(board); // Render the initial board in the table - REMOVED
   if (intervalId) clearInterval(intervalId);
   intervalId = setInterval(updateTimer, 1000); // Update timer every second
 
@@ -712,8 +695,8 @@ function startGame() {
 // Update the makeMove function to also render the table after each move
 function makeMove(row, col) {
   board[row][col] = currentPlayer + 1; // Player 1 is Yellow, Player 2 is Red
-  drawBoard(board);
-  renderGameTable(board); // Update the table after each move
+  drawBoard(board); // Note: This ideally should be drawBoardState
+  // renderGameTable(board); // Update the table after each move - REMOVED
 
   const [win, structure] = checkWin(board, [row, col], currentPlayer + 1);
   if (win) {
@@ -732,8 +715,8 @@ function checkForTie(board) {
 // Update the makeMove function to check for a tie after each move
 function makeMove(row, col) {
   board[row][col] = currentPlayer + 1; // Player 1 is Yellow, Player 2 is Red
-  drawBoard(board);
-  renderGameTable(board); // Update the table after each move
+  drawBoard(board); // Note: This ideally should be drawBoardState
+  // renderGameTable(board); // Update the table after each move - REMOVED
 
   // Check if the current move results in a win
   const [win, structure] = checkWin(board, [row, col], currentPlayer + 1);
