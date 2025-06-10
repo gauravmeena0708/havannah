@@ -673,7 +673,8 @@ function startGame() {
   playerTime = [300, 300];
   document.getElementById("winner").textContent = "";
   document.getElementById("currentTurn").textContent = "Current Turn: Player 1";
-  drawBoard(board); // Note: This ideally should be drawBoardState
+  #drawBoard(board); // Note: This ideally should be drawBoardState
+  drawBoardState(board);
   // renderGameTable(board); // Render the initial board in the table - REMOVED
   if (intervalId) clearInterval(intervalId);
   intervalId = setInterval(updateTimer, 1000); // Update timer every second
