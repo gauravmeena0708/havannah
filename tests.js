@@ -317,6 +317,26 @@ function testCheckFork() {
     let boardVShape = createBooleanBoard(dim, playerCellsVShape);
     assertFalse(checkFork(boardVShape, [0,0]), "Fork Test 5: V-shape connecting 2 edges from corner");
 
+    // Test Case 6: Fork involving the previously missing corner (6,6) of E4 (Bottom-right edge)
+    // Board layers = 4, dim = 7
+    // Path (3,6)->(4,6)->(5,6)->(6,6) should connect E2, E3, and corrected E4.
+    // E2 (Top-right): (0,3),(1,4),(2,5),(3,6)
+    // E3 (Right): (3,6),(4,6),(5,6),(6,6)
+    // E4 (Corrected Bottom-right): (6,3),(6,4),(6,5),(6,6)
+    let playerCellsForkE4 = [[3,6], [4,6], [5,6], [6,6]];
+    let boardForkE4 = createBooleanBoard(dim, playerCellsForkE4);
+    assertTrue(checkFork(boardForkE4, [6,6]), "Fork Test 6: Connects E2,E3,E4 via (6,6) on corrected E4");
+
+    // Test Case 7: Fork involving the previously missing corner (6,3) of E5 (Bottom-left edge)
+    // Board layers = 4, dim = 7
+    // Path (3,0)->(4,1)->(5,2)->(6,3) should connect E0, E5, and corrected E4.
+    // E0 (Left): (0,0),(1,0),(2,0),(3,0)
+    // E5 (Corrected Bottom-left): (3,0),(4,1),(5,2),(6,3)
+    // E4 (Corrected Bottom-right): (6,3),(6,4),(6,5),(6,6)
+    let playerCellsForkE5 = [[3,0], [4,1], [5,2], [6,3]];
+    let boardForkE5 = createBooleanBoard(dim, playerCellsForkE5);
+    assertTrue(checkFork(boardForkE5, [6,3]), "Fork Test 7: Connects E0,E5,E4 via (6,3) on corrected E5");
+
     window.layers = originalLayers;
     console.log("--- testCheckFork Finished ---");
 }

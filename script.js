@@ -421,8 +421,8 @@ function getAllEdges(dim) {
     Array.from({ length: siz }, (_, i) => [0, i]), // Top-left edge
     Array.from({ length: siz }, (_, i) => [i, i + siz - 1]), // Top-right edge
     Array.from({ length: siz }, (_, i) => [i + siz - 1, dim - 1]), // Right edge
-    Array.from({ length: dim - siz }, (_, i) => [dim - 1, i + siz - 1]), // Bottom-right edge
-    Array.from({ length: dim - siz }, (_, i) => [i + siz - 1, i]), // Bottom-left edge
+    Array.from({ length: siz }, (_, i) => [dim - 1, i + siz - 1]), // E4
+    Array.from({ length: siz }, (_, i) => [i + siz - 1, i]), // E5
   ];
   return edges.map((edge) => new Set(edge.map((e) => `${e[0]},${e[1]}`)));
 }
@@ -779,4 +779,195 @@ function endGame(winner, structure) {
   if (winner) {
     triggerCelebration();
   }
+}
+
+function saveGameState() {
+    if (typeof board === 'undefined' || board === null) {
+        alert("Game has not started or board is not initialized. Nothing to save.");
+        return;
+    }
+    // Attempt to get player2Type value, default to "human" if element isn't found or game hasn't started
+    let player2TypeValue = "human";
+    const player2TypeElement = document.getElementById("player2Type");
+    if (player2TypeElement) {
+        player2TypeValue = player2TypeElement.value;
+    } else if (typeof isPlayer2AI !== 'undefined' && isPlayer2AI === false) { // If game started and P2 is human
+        player2TypeValue = "human";
+    } else if (typeof aiPlayer2 !== 'undefined' && aiPlayer2 instanceof AIPlayer) { // Check type of AI
+        player2TypeValue = "ai";
+    } else if (typeof aiPlayer2 !== 'undefined' && aiPlayer2 instanceof AIPlayer2) {
+        player2TypeValue = "ai2";
+    }
+
+
+    const gameState = {
+        board: board,
+        currentPlayer: currentPlayer,
+        playerTime: playerTime,
+        layers: layers,
+        gameOver: gameOver,
+        isPlayer2AI: isPlayer2AI, // Save this to know if AI needs re-initialization
+        player2Type: player2TypeValue // Save the selection like "human", "ai", "ai2"
+    };
+
+    const jsonString = JSON.stringify(gameState, null, 2); // null, 2 for pretty printing
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "havannah_save.json";
+    document.body.appendChild(a); // Required for Firefox
+    a.click();
+    document.body.removeChild(a); // Clean up
+    URL.revokeObjectURL(url);
+
+    console.log("Game state saved.");
+}
+
+// Add event listener for the Save Game button
+// Ensure this runs after the button is in the DOM. script.js is loaded at the end of body in index.html.
+const saveGameButton = document.getElementById("saveGameBtn");
+if (saveGameButton) {
+    saveGameButton.addEventListener("click", saveGameState);
+} else {
+    // Fallback if script somehow runs before DOM is fully ready for this element
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById("saveGameBtn");
+        if (btn) {
+            btn.addEventListener("click", saveGameState);
+        } else {
+            console.error("Save Game button not found even after DOMContentLoaded.");
+        }
+    });
+}
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return; // No file selected
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        let gameState;
+        try {
+            gameState = JSON.parse(e.target.result);
+        } catch (error) {
+            alert("Failed to load game: Invalid save file format. Please select a valid .json save file.");
+            console.error("Error parsing save file:", error);
+            return;
+        }
+
+        // Basic validation of gameState structure
+        if (!gameState || typeof gameState.layers === 'undefined' || !gameState.board || typeof gameState.currentPlayer === 'undefined' || !gameState.playerTime || typeof gameState.gameOver === 'undefined' || typeof gameState.isPlayer2AI === 'undefined' || typeof gameState.player2Type === 'undefined') {
+            alert("Failed to load game: Save file is missing required data.");
+            return;
+        }
+
+        // Stop current game processes & clear UI elements from previous game
+        if (intervalId) clearInterval(intervalId);
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+            particles = []; // Clear particles
+        }
+        canvas.style.border = "2px solid black"; // Reset canvas border to default
+        const winnerEl = document.getElementById("winner");
+        if (winnerEl) winnerEl.textContent = ""; // Clear winner display
+
+
+        // Update global game variables from loaded state
+        layers = gameState.layers; // Set layers first
+        board = gameState.board;
+        currentPlayer = gameState.currentPlayer;
+        playerTime = gameState.playerTime;
+        gameOver = gameState.gameOver;
+        isPlayer2AI = gameState.isPlayer2AI;
+        // aiPlayer2 will be re-instantiated below
+
+        // Update UI elements based on loaded state
+        const sizeSelectEl = document.getElementById("sizeSelect");
+        if (sizeSelectEl) sizeSelectEl.value = layers;
+
+        const player2TypeEl = document.getElementById("player2Type");
+        if (player2TypeEl) player2TypeEl.value = gameState.player2Type;
+
+        adjustCanvasSize(layers); // Adjust canvas size for new layer count
+        drawBoardState(board);    // Draw the loaded board state
+
+        // Update player turn display and other UI text
+        const currentTurnEl = document.getElementById("currentTurn");
+        if (currentTurnEl) {
+            if (gameOver) {
+                // If game was over, reflect that. Might need more detailed info from save in future.
+                currentTurnEl.textContent = "Game Over (Loaded State)";
+                // If winner info was part of gameState, display it here.
+                // e.g. if (gameState.winnerPlayer) { winnerEl.textContent = `Player ${gameState.winnerPlayer} won!`; }
+            } else {
+                currentTurnEl.textContent = `Current Turn: Player ${currentPlayer + 1}`;
+            }
+        }
+
+        updatePlayerTime(); // Update timer displays
+
+        // Re-initialize AI Player object based on loaded player2Type
+        const loadedPlayer2Type = gameState.player2Type;
+        aiPlayer2 = null; // Reset AI player first
+        // isPlayer2AI is already set from gameState.isPlayer2AI, use it directly
+        if (isPlayer2AI) {
+            if (loadedPlayer2Type === "ai") {
+                aiPlayer2 = new AIPlayer(2); // AI is player 2 (index 1, but constructor might take 1 or 2)
+            } else if (loadedPlayer2Type === "ai2") {
+                aiPlayer2 = new AIPlayer2(2); // AI2 is player 2
+            } else {
+                // Should not happen if isPlayer2AI is true and player2Type is human, but good to be safe
+                isPlayer2AI = false;
+            }
+        }
+
+
+        // Restart timer if game is not over
+        if (!gameOver) {
+            intervalId = setInterval(updateTimer, 1000);
+        }
+
+        console.log("Game state loaded successfully.");
+
+        // If it's AI's turn in the loaded game and the game is not over, trigger AI move
+        if (currentPlayer === 1 && isPlayer2AI && !gameOver) {
+            handleAITurn();
+        }
+    };
+
+    reader.onerror = function() {
+        alert("Failed to read file. An error occurred.");
+        console.error("FileReader error:", reader.error);
+    };
+
+    reader.readAsText(file);
+    event.target.value = null; // Reset file input so 'change' fires for same file
+}
+
+// Add event listeners for Load Game button and file input
+const loadGameButton = document.getElementById("loadGameBtn");
+const loadGameInput = document.getElementById("loadGameInput");
+
+if (loadGameButton && loadGameInput) {
+    loadGameButton.addEventListener("click", () => {
+        loadGameInput.click(); // Programmatically click the hidden file input
+    });
+    loadGameInput.addEventListener("change", handleFileSelect);
+} else {
+    // Fallback to ensure listeners are attached even if script runs very early
+    document.addEventListener('DOMContentLoaded', () => {
+        const lgb = document.getElementById("loadGameBtn");
+        const lgi = document.getElementById("loadGameInput");
+        if (lgb && lgi) {
+            lgb.addEventListener("click", () => lgi.click());
+            lgi.addEventListener("change", handleFileSelect);
+        } else {
+            console.error("Load Game button or input not found even after DOMContentLoaded.");
+        }
+    });
 }
