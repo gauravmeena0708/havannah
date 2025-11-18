@@ -157,9 +157,8 @@ function updateTimer() {
   playerTime[currentPlayer]--;
   if (playerTime[currentPlayer] <= 0) {
     gameOver = true;
-    document.getElementById("currentTurn").textContent = `Game Over! Player ${
-      currentPlayer + 1
-    } ran out of time.`;
+    document.getElementById("currentTurn").textContent = `Game Over! Player ${currentPlayer + 1
+      } ran out of time.`;
     clearInterval(intervalId);
     return;
   }
@@ -171,12 +170,10 @@ function updatePlayerTime() {
   const player1Sec = playerTime[0] % 60;
   const player2Min = Math.floor(playerTime[1] / 60);
   const player2Sec = playerTime[1] % 60;
-  document.getElementById("player1Time").textContent = `${player1Min}:${
-    player1Sec < 10 ? "0" : ""
-  }${player1Sec}`;
-  document.getElementById("player2Time").textContent = `${player2Min}:${
-    player2Sec < 10 ? "0" : ""
-  }${player2Sec}`;
+  document.getElementById("player1Time").textContent = `${player1Min}:${player1Sec < 10 ? "0" : ""
+    }${player1Sec}`;
+  document.getElementById("player2Time").textContent = `${player2Min}:${player2Sec < 10 ? "0" : ""
+    }${player2Sec}`;
 }
 
 canvas.addEventListener("click", (event) => {
@@ -221,9 +218,8 @@ function isPointInHexagon(x, y, coords) {
 
 function switchPlayer() {
   currentPlayer = 1 - currentPlayer;
-  document.getElementById("currentTurn").textContent = `Current Turn: Player ${
-    currentPlayer + 1
-  }`;
+  document.getElementById("currentTurn").textContent = `Current Turn: Player ${currentPlayer + 1
+    }`;
   if (currentPlayer === 1 && isPlayer2AI && !gameOver) {
     handleAITurn(); // AI makes a move
   }
@@ -416,13 +412,19 @@ function bfsReachable(board, start) {
 // Fixing edges identification
 function getAllEdges(dim) {
   const siz = Math.floor((dim + 1) / 2);
+  // We want only the inner points of the edges, excluding corners.
+  // A side has 'siz' points. Removing 2 corners leaves 'siz - 2' points.
+  // We iterate i from 1 to siz - 2.
+
+  const range = Array.from({ length: siz - 2 }, (_, i) => i + 1);
+
   const edges = [
-    Array.from({ length: siz }, (_, i) => [i, 0]), // Left edge
-    Array.from({ length: siz }, (_, i) => [0, i]), // Top-left edge
-    Array.from({ length: siz }, (_, i) => [i, i + siz - 1]), // Top-right edge
-    Array.from({ length: siz }, (_, i) => [i + siz - 1, dim - 1]), // Right edge
-    Array.from({ length: dim - siz }, (_, i) => [dim - 1, i + siz - 1]), // Bottom-right edge
-    Array.from({ length: dim - siz }, (_, i) => [i + siz - 1, i]), // Bottom-left edge
+    range.map(i => [i, 0]), // Left edge
+    range.map(i => [0, i]), // Top-left edge
+    range.map(i => [i, i + siz - 1]), // Top-right edge
+    range.map(i => [i + siz - 1, dim - 1]), // Right edge
+    range.map(i => [dim - 1, i + siz - 1]), // Bottom-right edge
+    range.map(i => [i + siz - 1, i]), // Bottom-left edge
   ];
   return edges.map((edge) => new Set(edge.map((e) => `${e[0]},${e[1]}`)));
 }
@@ -496,11 +498,12 @@ function checkWin(board, move, playerNum) {
 function checkRing(board, move) {
   const dim = board.length;
   const [moveR, moveC] = move;
+  const playerNum = board[moveR][moveC];
 
   // 1. Get all neighbors of `move` that are also the player's stones
   const allNeighbors = getNeighbours(dim, move);
   const playerNeighbors = allNeighbors.filter(([nr, nc]) => {
-    return isValid(nr, nc, dim) && board[nr][nc];
+    return isValid(nr, nc, dim) && board[nr][nc] === playerNum;
   });
 
   // 2. If `playerNeighbors.length < 2`, return `false`.
@@ -508,59 +511,230 @@ function checkRing(board, move) {
     return false;
   }
 
-  // 3. For each distinct pair of `playerNeighbors` (n1, n2):
+  // 3. Check for a ring by trying to find a path between any two neighbors
+  //    that does NOT use the `move` cell and does NOT use any "short-circuiting" connections.
   for (let i = 0; i < playerNeighbors.length; i++) {
     for (let j = i + 1; j < playerNeighbors.length; j++) {
       const n1 = playerNeighbors[i];
       const n2 = playerNeighbors[j];
-      const [n1r, n1c] = n1;
-      const [n2r, n2c] = n2;
 
-      // a. Perform a BFS starting from `n1` to find a path to `n2`.
-      const queue = [ [n1, [n1]] ]; // Store [currentCell, path_to_currentCell]
-      const visitedInBFS = new Set();
-      visitedInBFS.add(`${moveR},${moveC}`); // c. BFS must NOT go through the original `move` cell.
-      visitedInBFS.add(`${n1r},${n1c}`);
-
-      while (queue.length > 0) {
-        const [currentCell, currentPath] = queue.shift();
-        const [cr, cc] = currentCell;
-
-        if (cr === n2r && cc === n2c) { // Path to n2 found
-          // d. cycle: move -> n1 -> ...path... -> n2 -> move
-          // e. length of this cycle is currentPath.length + 1 (n1 is in currentPath, +1 for original move)
-          // The problem statement says "path.length + 1 >= 6" where path is p1...pk (n1 to n2).
-          // So, currentPath.length is the number of nodes from n1 to n2 inclusive.
-                          // The cycle is move -> n1(=p1) -> p2 ... -> pk(=n2) -> move
-                          // The number of nodes in cycle is currentPath.length (nodes from n1 to n2) + 1 (the initial 'move' node)
-          if (currentPath.length + 1 >= 6) {
-            // f. If cycle length >= 6, return true.
-            return true;
-          }
-          // Found a path, but it's too short for a ring. Break from this BFS.
-          break;
-        }
-
-        const neighborsOfCurrent = getNeighbours(dim, currentCell);
-        for (const neighbor of neighborsOfCurrent) {
-          const [nr, nc] = neighbor;
-          const neighborStr = `${nr},${nc}`;
-
-          if (
-            isValid(nr, nc, dim) &&       // Valid cell
-            board[nr][nc] &&              // Is player's stone
-            !visitedInBFS.has(neighborStr) // Not visited in THIS BFS path search and not the original 'move'
-          ) {
-            visitedInBFS.add(neighborStr);
-            const newPath = [...currentPath, neighbor];
-            queue.push([neighbor, newPath]);
-          }
-        }
+      if (findRingPath(board, move, n1, n2, playerNeighbors)) {
+        return true;
       }
     }
   }
 
-  // 4. If no such cycle is found after checking all pairs, return `false`.
+  return false;
+}
+
+function findRingPath(board, move, start, end, allMoveNeighbors) {
+  const dim = board.length;
+  const [moveR, moveC] = move;
+  const [endR, endC] = end;
+  const playerNum = board[moveR][moveC];
+
+  // Set of cells to exclude from the BFS to force a "long" way around.
+  // 1. The move itself (obviously).
+  const excluded = new Set([`${moveR},${moveC}`]);
+
+  // 2. All OTHER neighbors of 'move' (except start and end).
+  //    This prevents the path from just hopping through another neighbor of 'move'.
+  for (const neighbor of allMoveNeighbors) {
+    const nStr = `${neighbor[0]},${neighbor[1]}`;
+    if (nStr !== `${start[0]},${start[1]}` && nStr !== `${end[0]},${end[1]}`) {
+      excluded.add(nStr);
+    }
+  }
+
+  // 3. If start and end are neighbors, we must NOT use the direct edge between them.
+  //    But BFS finds nodes, not edges. So we can't "ban" an edge easily.
+  //    However, if they are neighbors, a path of length 1 exists (start->end).
+  //    We want a path that is NOT just that direct step.
+  //    Since we are doing BFS on nodes, we can't stop the direct step unless we ban 'end' which is impossible.
+  //    Wait, if they are neighbors, they form a triangle with 'move'.
+  //    We want to find a path that goes the "long way".
+  //    If we just run BFS, it will find the direct neighbor connection immediately.
+  //    
+  //    Strategy: If start and end are neighbors, we can't use the direct connection.
+  //    But we can't tell BFS "don't go from start to end directly".
+  //    
+  //    Actually, the problem is simpler: We want to see if there is a path from start to end
+  //    that does NOT use 'move' and has length >= something?
+  //    No, the cycle length condition is `path_len + 2 >= 6` (start->...->end->move->start).
+  //    So path_len >= 4.
+  //    
+  //    If we find *any* path with length >= 4, is that enough?
+  //    Not necessarily. BFS finds the shortest path.
+  //    If the shortest path is length 1 (direct neighbor), BFS returns that.
+  //    We need to know if there exists a path of length >= 4.
+  //    
+  //    If start and end are neighbors, the shortest path is 1.
+  //    We want to know if there is *another* path.
+  //    This effectively means: is there a path if we remove the direct edge?
+  //    But we can't remove edges in a grid graph easily without modifying the graph structure.
+  //    
+  //    Alternative:
+  //    The "short circuits" are caused by:
+  //    a) Direct connection between n1 and n2.
+  //    b) Common neighbors of n1 and n2 (forming a rhombus with 'move').
+  //    
+  //    We can try to exclude common neighbors of start and end from the BFS?
+  //    
+  //    Let's try this:
+  //    If start and end are neighbors, we are looking for a cycle > 3.
+  //    If we find a path > 1, we are good?
+  //    
+  //    Actually, the robust way is:
+  //    Run BFS.
+  //    If we reach 'end', check the path length.
+  //    If path length is long enough, return true.
+  //    If path length is too short (e.g. 1 or 2), we need to see if there's a *longer* path.
+  //    But BFS doesn't find longer paths.
+  //    
+  //    However, in the context of a planar hexagonal grid, "short" paths are very constrained.
+  //    Short paths are:
+  //    1. Direct neighbor (len 1).
+  //    2. Common neighbor (len 2).
+  //    
+  //    If we exclude:
+  //    - The direct edge (conceptually).
+  //    - Any common neighbors of start and end (that are also neighbors of 'move'? No, just common neighbors).
+  //    
+  //    Actually, we already excluded other neighbors of 'move'.
+  //    So if n1 and n2 share a neighbor n3, and n3 is ALSO a neighbor of 'move', n3 is excluded.
+  //    So "rhombus" through a mutual neighbor of 'move' is blocked.
+  //    
+  //    What if n1 and n2 share a neighbor X that is NOT a neighbor of 'move'?
+  //    Then move->n1->X->n2->move is a length 4 cycle. Not a ring (needs 6).
+  //    So we must also exclude common neighbors of n1 and n2?
+  //    
+  //    Yes! A cycle of 4 or 5 is not a ring.
+  //    Cycle 4: move-n1-X-n2-move. Path n1-X-n2 is len 2.
+  //    Cycle 5: move-n1-X-Y-n2-move. Path n1-X-Y-n2 is len 3.
+  //    We need Cycle 6: Path len >= 4.
+  //    
+  //    So we need to block any path of len 1, 2, or 3.
+  //    
+  //    We can do this by:
+  //    1. If n1, n2 are neighbors, we can't use that edge.
+  //       Since we can't cut edges, we can try to run BFS starting from neighbors of n1 (excluding n2).
+  //       But that's getting complicated.
+  //       
+  //    Better approach:
+  //    The "Ring" definition in Havannah is a loop around one or more cells.
+  //    The "short" cycles (3, 4, 5) do not encircle anything in a hex grid (usually).
+  //    (Triangle encircles nothing. Rhombus encircles nothing. Trapeze (5) encircles nothing?)
+  //    Actually, a 3-cycle is a triangle.
+  //    A 4-cycle is a rhombus.
+  //    A 5-cycle is a "trapezoid" shape?
+  //    None of these enclose a cell.
+  //    The smallest ring enclosing a cell is 6.
+  //    
+  //    So, if we find a path, and it's "short", it's not a ring.
+  //    But the existence of a short path doesn't disprove a long path (Ring).
+  //    The problem is BFS finds the short one and stops.
+  //    
+  //    To force BFS to find the long one, we must block the short ones.
+  //    Short paths go through "local" nodes.
+  //    
+  //    We should exclude:
+  //    - n2 itself? No, we need to reach it.
+  //    - Any node X such that dist(n1, X) + dist(X, n2) < 4?
+  //    
+  //    Let's simply exclude all common neighbors of n1 and n2 from the BFS?
+  //    If n1 and n2 have a common neighbor X, path n1-X-n2 is len 2.
+  //    If we exclude X, we force a longer path.
+  //    
+  //    What about len 3? n1-A-B-n2.
+  //    If we exclude common neighbors, we handle len 2.
+  //    
+  //    What if n1 and n2 are neighbors (len 1)?
+  //    We can't exclude "direct connection".
+  //    BUT, if they are neighbors, we can treat them as "not connected" for the purpose of this search.
+  //    We can start BFS from n1, but do NOT add n2 to the queue immediately.
+  //    We only accept reaching n2 if the path length is >= 4.
+  //    
+  //    So:
+  //    BFS Queue: [ [n1, [n1]] ]
+  //    Visited: {n1, move, all_other_neighbors_of_move}
+  //    
+  //    When expanding curr:
+  //      For each neighbor next:
+  //        If next == n2:
+  //           If path.length >= 4: return true.
+  //           Else: Ignore this connection! (Do not return, do not add to queue, just continue).
+  //        Else:
+  //           Standard BFS.
+  //           
+  //    This works! If we see n2 via a short path, we just ignore it and keep searching for a longer way to n2.
+  //    Wait, standard BFS visited set prevents re-visiting nodes.
+  //    If we reach n2 via short path and ignore it, we haven't "visited" n2 in the sense of stopping.
+  //    But we need to make sure we don't mark n2 as visited if we ignore it?
+  //    Actually, we never add n2 to the queue if we ignore it. So n2 is not visited.
+  //    
+  //    But what about the nodes on the short path?
+  //    If n1-X-n2 exists.
+  //    We reach X. We see n2. Path len is 2 (too short). We ignore n2.
+  //    We continue expanding X.
+  //    Can we reach n2 another way?
+  //    Maybe n1-Y-Z-n2.
+  //    
+  //    So the logic "If next == n2 and path short, ignore" seems correct.
+  //    We just don't add n2 to visited or queue.
+  //    
+  //    One catch: What if the short path "blocks" the long path?
+  //    In a planar graph, this can happen?
+  //    If we mark X as visited, can X be part of the long ring?
+  //    No, X is part of the short cycle.
+  //    If X is part of the ring, then the ring is... X... n2 ... X ... ? No, simple cycle.
+  //    
+  //    So, the proposed algorithm:
+  //    BFS from n1.
+  //    Target: n2.
+  //    Constraint: Path length >= 4.
+  //    
+  //    When we encounter n2:
+  //      If path >= 4, Found!
+  //      If path < 4, Ignore (don't add to queue, don't mark visited).
+  //      
+  //    Also, we must exclude 'move' and other neighbors of 'move' from the search space entirely.
+  //    
+  //    This seems robust enough for Havannah.
+
+  const queue = [[start, 0]]; // current, distance
+  const visited = new Set();
+
+  // Mark excluded nodes as visited so we don't use them
+  excluded.forEach(x => visited.add(x));
+  visited.add(`${start[0]},${start[1]}`); // Start is visited
+
+  while (queue.length > 0) {
+    const [current, dist] = queue.shift();
+    const neighbors = getNeighbours(dim, current);
+
+    for (const neighbor of neighbors) {
+      const [nr, nc] = neighbor;
+      const nStr = `${nr},${nc}`;
+
+      if (!isValid(nr, nc, dim) || board[nr][nc] !== playerNum) {
+        continue;
+      }
+
+      if (nr === endR && nc === endC) {
+        // Found connection to end
+        if (dist + 1 >= 4) {
+          return true;
+        }
+        // Else: Too short, ignore this connection.
+        continue;
+      }
+
+      if (!visited.has(nStr)) {
+        visited.add(nStr);
+        queue.push([neighbor, dist + 1]);
+      }
+    }
+  }
   return false;
 }
 
@@ -586,16 +760,16 @@ function getAllCorners(dim) {
 }
 
 function getEdge(vertex, dim) {
-    let [i, j] = vertex;
-    const mid = Math.floor(dim / 2);
+  let [i, j] = vertex;
+  const mid = Math.floor(dim / 2);
 
-    if (j === 0 && i > 0 && i < mid) return 0; // Left
-    if (i === 0 && j > 0 && j < mid) return 1; // Top-left
-    if (i > 0 && i < mid && i === j) return 2; // Top-right
-    if (j === dim - 1 && i > mid && i < dim - 1) return 3; // Right
-    if (i === dim - 1 && j > mid && j < dim - 1) return 4; // Bottom-right
-    if (i > mid && i < dim - 1 && i - j === mid) return 5; // Bottom-left
-    return -1;
+  if (j === 0 && i > 0 && i < mid) return 0; // Left
+  if (i === 0 && j > 0 && j < mid) return 1; // Top-left
+  if (i > 0 && i < mid && i === j) return 2; // Top-right
+  if (j === dim - 1 && i > mid && i < dim - 1) return 3; // Right
+  if (i === dim - 1 && j > mid && j < dim - 1) return 4; // Bottom-right
+  if (i > mid && i < dim - 1 && i - j === mid) return 5; // Bottom-left
+  return -1;
 }
 
 function getCorner(vertex, dim) {
