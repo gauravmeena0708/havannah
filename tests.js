@@ -271,55 +271,44 @@ function testCheckFork() {
 
     // Test Case 1.2: Another fork, move is on an edge connecting 2, and a path to 3rd.
     // Move (0,0) is on E0 and E1. Path to E5 (bottom-left diagonal)
-    playerCellsFork = [
-        [0, 0], // lastMove, on Edge 0 (y=0) and Edge 1 (x=0)
-        [1, 0], [2, 0], [3, 0], // Part of Edge 0
-        [0, 1], [0, 2], [0, 3], // Part of Edge 1
-        // Path to a third edge, e.g., E2 (0,3), (1,4), (2,5), (3,6)
-        // Let's connect (0,0) to (0,3) (which is on E1 and E2)
-        // And connect (0,0) to (3,0) (which is on E0 and E5: (3,0),(4,1),(5,2),(6,3))
-        // So (0,0) connects E0, E1. (0,3) connects E1, E2. (3,0) connects E0, E5.
-        // If lastMove is (0,0), it's on E0 and E1. Need one more.
-        // Path: (0,0) -> (1,1) -> (1,2) -> (0,2) -> (0,3) (on E2)
-        // Path: (0,0) -> (1,1) -> (1,2) -> (0,2) -> (0,3) (on E2)
-        playerCellsFork = [[0, 0], [1, 1], [1, 2], [0, 2], [0, 3]];
-        boardFork = createBooleanBoard(dim, playerCellsFork);
-        assertTrue(checkFork(boardFork, [0, 0]), "Fork Test 1.2: Should detect fork for (0,0)");
+    playerCellsFork = [[0, 0], [1, 1], [1, 2], [0, 2], [0, 3]];
+    boardFork = createBooleanBoard(dim, playerCellsFork);
+    assertTrue(checkFork(boardFork, [0, 0]), "Fork Test 1.2: Should detect fork for (0,0)");
 
 
-        // Test Case 2: Fork not present (only 2 edges connected)
-        // Piece (1,1) connects to (1,0) [E0] and (0,1) [E1]
-        let playerCellsNoFork2Edges = [
-            [1, 1], // lastMove
-            [1, 0],
-            [0, 1]
-        ];
-        let boardNoFork2Edges = createBooleanBoard(dim, playerCellsNoFork2Edges);
-        assertFalse(checkFork(boardNoFork2Edges, [1, 1]), "Fork Test 2: Should not detect fork (2 edges)");
+    // Test Case 2: Fork not present (only 2 edges connected)
+    // Piece (1,1) connects to (1,0) [E0] and (0,1) [E1]
+    let playerCellsNoFork2Edges = [
+        [1, 1], // lastMove
+        [1, 0],
+        [0, 1]
+    ];
+    let boardNoFork2Edges = createBooleanBoard(dim, playerCellsNoFork2Edges);
+    assertFalse(checkFork(boardNoFork2Edges, [1, 1]), "Fork Test 2: Should not detect fork (2 edges)");
 
-        // Test Case 3: No edges connected by paths from lastMove
-        let playerCellsNoForkScatter = [
-            [3, 3], // lastMove (center)
-            [1, 1], [5, 5] // some other disconnected cells
-        ];
-        let boardNoForkScatter = createBooleanBoard(dim, playerCellsNoForkScatter);
-        assertFalse(checkFork(boardNoForkScatter, [3, 3]), "Fork Test 3: No edges connected from (3,3)");
+    // Test Case 3: No edges connected by paths from lastMove
+    let playerCellsNoForkScatter = [
+        [3, 3], // lastMove (center)
+        [1, 1], [5, 5] // some other disconnected cells
+    ];
+    let boardNoForkScatter = createBooleanBoard(dim, playerCellsNoForkScatter);
+    assertFalse(checkFork(boardNoForkScatter, [3, 3]), "Fork Test 3: No edges connected from (3,3)");
 
-        // Test Case 4: Single line of stones, only touches 2 edges at ends
-        let playerCellsLine = [[0, 0], [1, 0], [2, 0], [3, 0]]; // Line on Edge 0
-        let boardLine = createBooleanBoard(dim, playerCellsLine);
-        assertFalse(checkFork(boardLine, [1, 0]), "Fork Test 4: Line of stones on one edge, move in middle");
-        assertFalse(checkFork(boardLine, [0, 0]), "Fork Test 4.1: Line of stones on one edge, move at end");
+    // Test Case 4: Single line of stones, only touches 2 edges at ends
+    let playerCellsLine = [[0, 0], [1, 0], [2, 0], [3, 0]]; // Line on Edge 0
+    let boardLine = createBooleanBoard(dim, playerCellsLine);
+    assertFalse(checkFork(boardLine, [1, 0]), "Fork Test 4: Line of stones on one edge, move in middle");
+    assertFalse(checkFork(boardLine, [0, 0]), "Fork Test 4.1: Line of stones on one edge, move at end");
 
 
-        // Test Case 5: A 'V' shape connecting two edges, move at the vertex. This is NOT a fork.
-        // (0,0) is on E0, E1.
-        let playerCellsVShape = [[1, 0], [0, 0], [0, 1]]; // Move (0,0)
-        let boardVShape = createBooleanBoard(dim, playerCellsVShape);
-        assertFalse(checkFork(boardVShape, [0, 0]), "Fork Test 5: V-shape connecting 2 edges from corner");
+    // Test Case 5: A 'V' shape connecting two edges, move at the vertex. This is NOT a fork.
+    // (0,0) is on E0, E1.
+    let playerCellsVShape = [[1, 0], [0, 0], [0, 1]]; // Move (0,0)
+    let boardVShape = createBooleanBoard(dim, playerCellsVShape);
+    assertFalse(checkFork(boardVShape, [0, 0]), "Fork Test 5: V-shape connecting 2 edges from corner");
 
-        window.layers = originalLayers;
-        console.log("--- testCheckFork Finished ---");
+    window.layers = originalLayers;
+    console.log("--- testCheckFork Finished ---");
 }
 
 function testCheckBridge() {
