@@ -6,11 +6,11 @@
 // --- Configuration ---
 const CONFIG = {
   colors: {
-    p1: { main: '#ffd700', light: '#ffeb3b', shadow: 'rgba(255, 215, 0, 0.5)' }, // Gold
-    p2: { main: '#ff4444', light: '#ff8a80', shadow: 'rgba(255, 68, 68, 0.5)' }, // Red
-    empty: { main: '#1a1a24', border: '#333' },
+    p1: { main: '#ffd700', light: '#ffe57f', shadow: 'rgba(255, 215, 0, 0.6)' }, // Gold
+    p2: { main: '#ff2a6d', light: '#ff80ab', shadow: 'rgba(255, 42, 109, 0.6)' }, // Neon Red/Pink
+    empty: { main: 'rgba(20, 25, 40, 0.4)', border: 'rgba(0, 242, 255, 0.1)' },
     blocked: { main: '#000', border: '#000' },
-    text: '#666'
+    text: '#e0e6ed'
   },
   animation: {
     duration: 300
@@ -31,8 +31,8 @@ class Renderer {
   resize(layers) {
     this.layers = layers;
     const screenHeight = window.innerHeight;
-    const maxCanvasSize = screenHeight - 100; // Keep space for UI
-    const padding = 20;
+    const maxCanvasSize = screenHeight - 50; // Keep space for UI
+    const padding = 40;
 
     // Calculate hex size to fit the board
     // Board width ~= 3 * layers * hexSize
@@ -73,12 +73,13 @@ class Renderer {
       ctx.fillStyle = CONFIG.colors.empty.main;
       ctx.strokeStyle = CONFIG.colors.empty.border;
       ctx.lineWidth = 1;
+      ctx.shadowBlur = 0;
     } else {
       const color = player === 1 ? CONFIG.colors.p1 : CONFIG.colors.p2;
 
-      // Gradient for 3D effect
+      // Gradient for 3D/Neon effect
       const grad = ctx.createRadialGradient(
-        center.x - this.hexSize / 3, center.y - this.hexSize / 3, this.hexSize / 10,
+        center.x, center.y, 0,
         center.x, center.y, this.hexSize
       );
       grad.addColorStop(0, color.light);
@@ -86,8 +87,8 @@ class Renderer {
 
       ctx.fillStyle = grad;
       ctx.shadowColor = color.shadow;
-      ctx.shadowBlur = 15;
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.shadowBlur = 20;
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
       ctx.lineWidth = 2;
     }
 
@@ -96,13 +97,6 @@ class Renderer {
 
     // Reset shadow
     ctx.shadowBlur = 0;
-
-    // Debug coordinates (optional, can be toggled)
-    // ctx.fillStyle = CONFIG.colors.text;
-    // ctx.font = '10px Arial';
-    // ctx.textAlign = 'center';
-    // ctx.textBaseline = 'middle';
-    // ctx.fillText(`${r},${c}`, center.x, center.y);
   }
 
   calculateHexagon(i, j) {
@@ -454,6 +448,232 @@ function isValid(x, y, dim) {
   const layers = (dim + 1) / 2;
   const colHeight = (y < layers) ? (layers + y) : (layers + (2 * layers - 2) - y);
   return 0 <= x && x < colHeight;
+}
+
+// --- Game Class ---
+class Game {
+  constructor() {
+    this.renderer = new Renderer('gameCanvas');
+    this.board = [];
+    this.layers = 4; // Default size
+    this.currentPlayer = 1; // 1 or 2
+    this.gameOver = false;
+    this.aiPlayer = null;
+    this.isAiTurn = false;
+    this.time = [300, 300]; // 5 mins per player
+    this.timerId = null;
+    this.history = []; // For undo
+
+    // UI Elements
+    this.ui = {
+      sizeSelect: document.getElementById('sizeSelect'),
+      player2Type: document.getElementById('player2Type'),
+      startBtn: document.getElementById('startGameBtn'),
+      undoBtn: document.getElementById('undoBtn'),
+      winner: document.getElementById('winner')
+    };
+
+    this.bindEvents();
+  }
+
+  bindEvents() {
+    this.ui.startBtn.addEventListener('click', () => this.start());
+    this.ui.undoBtn.addEventListener('click', () => this.undo());
+
+    // Canvas Click
+    this.renderer.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+
+    // Mouse Move for Hover Effect (Optional, can be added to Renderer)
+    this.renderer.canvas.addEventListener('mousemove', (e) => {
+      if (this.gameOver || this.isAiTurn) return;
+      const rect = this.renderer.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      // Could implement hover highlighting here
+    });
+  }
+
+  start() {
+    // Get settings
+    this.layers = parseInt(this.ui.sizeSelect.value);
+    const p2Type = this.ui.player2Type.value;
+
+    // Setup AI
+    if (p2Type === 'ai') {
+      this.aiPlayer = new AIPlayer(2, 1); // Easy AI
+    } else if (p2Type === 'ai2') {
+      this.aiPlayer = new AIPlayer2(2); // Hard AI
+    } else {
+      this.aiPlayer = null; // Human
+    }
+
+    // Reset State
+    this.board = this.createBoard(this.layers);
+    this.currentPlayer = 1;
+    this.gameOver = false;
+    this.isAiTurn = false;
+    this.time = [300, 300];
+    this.history = [];
+
+    // Reset UI
+    this.ui.winner.textContent = '';
+    this.ui.undoBtn.disabled = true;
+    document.getElementById('currentTurn').textContent = "Current Turn: Player 1";
+    document.getElementById('currentTurn').style.color = CONFIG.colors.p1.main;
+
+    // Resize & Draw
+    this.renderer.resize(this.layers);
+    this.renderer.drawBoard(this.board);
+
+    // Start Timer
+    this.startTimer();
+  }
+
+  createBoard(layers) {
+    const board = [];
+    // Max width is 2*layers - 1 + (layers-1) = 3*layers - 2? 
+    // Let's follow the renderer logic:
+    // Col 0 has 'layers' cells.
+    // Col layers-1 has '2*layers - 1' cells.
+    // Total columns = 2*layers - 1.
+
+    const numCols = 2 * layers - 1;
+    for (let i = 0; i < numCols; i++) {
+      const col = [];
+      const colHeight = i < layers ? layers + i : layers + (numCols - 1 - i);
+      for (let j = 0; j < colHeight; j++) {
+        col.push(0); // 0 = empty
+      }
+      board.push(col);
+    }
+    return board;
+  }
+
+  handleCanvasClick(e) {
+    if (this.gameOver || this.isAiTurn) return;
+
+    const rect = this.renderer.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const hex = this.renderer.getHexagonAt(x, y);
+    if (hex) {
+      const [i, j] = hex;
+      if (this.board[i][j] === 0) {
+        this.makeMove(i, j);
+      }
+    }
+  }
+
+  makeMove(i, j) {
+    // Save state for undo
+    this.history.push({
+      board: JSON.parse(JSON.stringify(this.board)), // Deep copy
+      player: this.currentPlayer,
+      move: [i, j]
+    });
+    if (this.history.length > 0) this.ui.undoBtn.disabled = false;
+
+    // Update Board
+    this.board[i][j] = this.currentPlayer;
+    this.renderer.drawBoard(this.board); // Optimized: drawHexagon(..., currentPlayer, i, j)
+
+    // Check Win
+    const [won, reason] = checkWin(this.board, [i, j], this.currentPlayer);
+    if (won) {
+      this.endGame(this.currentPlayer, reason);
+      return;
+    }
+
+    // Switch Turn
+    this.switchPlayer();
+  }
+
+  switchPlayer() {
+    this.currentPlayer = (this.currentPlayer === 1) ? 2 : 1;
+    this.updateUI();
+
+    // AI Turn
+    if (this.currentPlayer === 2 && this.aiPlayer) {
+      this.isAiTurn = true;
+      setTimeout(() => {
+        const move = this.aiPlayer.getMove(this.board);
+        this.isAiTurn = false;
+        if (move) {
+          this.makeMove(move[0], move[1]);
+        } else {
+          // No moves? Draw?
+          // Havannah rarely draws, but if board full...
+          // Simple check:
+          // if (!this.board.flat().includes(0)) this.endGame(0, 'Draw');
+        }
+      }, 100); // Small delay for UX
+    }
+  }
+
+  updateUI() {
+    const p = this.currentPlayer;
+    const el = document.getElementById('currentTurn');
+    el.textContent = `Current Turn: Player ${p}`;
+    el.style.color = p === 1 ? CONFIG.colors.p1.main : CONFIG.colors.p2.main;
+  }
+
+  undo() {
+    if (this.history.length === 0 || this.gameOver || this.isAiTurn) return;
+
+    // Undo 1 step (if human vs human) or 2 steps (if human vs AI)
+    const steps = this.aiPlayer ? 2 : 1;
+
+    for (let k = 0; k < steps; k++) {
+      if (this.history.length === 0) break;
+      const lastState = this.history.pop();
+      // We need the state BEFORE this move. 
+      // Actually, history stores the state *before* the move? 
+      // My makeMove pushed current board *before* update? Yes.
+      // So popping gives us the previous board.
+      this.board = lastState.board;
+      this.currentPlayer = lastState.player;
+    }
+
+    this.renderer.drawBoard(this.board);
+    this.updateUI();
+    if (this.history.length === 0) this.ui.undoBtn.disabled = true;
+  }
+
+  startTimer() {
+    if (this.timerId) clearInterval(this.timerId);
+    this.timerId = setInterval(() => {
+      if (this.gameOver) return;
+
+      // Decrement time for current player (0-indexed in array)
+      const pIdx = this.currentPlayer - 1;
+      this.time[pIdx]--;
+
+      if (this.time[pIdx] <= 0) {
+        this.endGame(3 - this.currentPlayer, 'Timeout');
+      }
+      this.updateTimerDisplay();
+    }, 1000);
+  }
+
+  updateTimerDisplay() {
+    const fmt = (t) => {
+      const m = Math.floor(t / 60);
+      const s = t % 60;
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+    document.getElementById('player1Time').textContent = fmt(this.time[0]);
+    document.getElementById('player2Time').textContent = fmt(this.time[1]);
+  }
+
+  endGame(winner, reason) {
+    this.gameOver = true;
+    clearInterval(this.timerId);
+    const msg = `Game Over! Player ${winner} wins by ${reason}!`;
+    this.ui.winner.textContent = msg;
+    this.renderer.triggerCelebration(winner);
+    this.renderer.showToast(msg);
+  }
 }
 
 // --- Initialization ---
