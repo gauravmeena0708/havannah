@@ -1,0 +1,118 @@
+:root {
+    --bg-color: #0a0a12;
+    --panel-bg: rgba(20, 20, 30, 0.7);
+    --text-color: #e0e0e0;
+    --accent-color: #00d4ff;
+    --accent-glow: 0 0 10px #00d4ff;
+    --hex-border: #333;
+    --hex-bg: #1a1a24;
+    --p1-color: #ffd700;
+    --p1-glow: 0 0 15px #ffd700;
+    --p2-color: #ff4444;
+    --p2-glow: 0 0 15px #ff4444;
+    --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    margin: 0;
+    overflow: hidden; /* Prevent scrollbars for full immersion */
+    background-image: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0a0a12 100%);
+}
+
+.glass-panel {
+    background: var(--panel-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+h1, h2, h3 {
+    color: var(--accent-color);
+    text-shadow: var(--accent-glow);
+    font-weight: 300;
+    letter-spacing: 1px;
+}
+
+.btn-premium {
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: bold;
+    box-shadow: 0 0 5px rgba(0, 212, 255, 0.2);
+}
+
+.btn-premium:hover {
+    background: var(--accent-color);
+    color: #000;
+    box-shadow: 0 0 20px var(--accent-color);
+}
+
+canvas {
+    border: none; /* Canvas border handled by game logic or container */
+    filter: drop-shadow(0 0 20px rgba(0,0,0,0.5));
+}
+
+/* Layout */
+.game-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+.sidebar {
+    width: 350px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 10;
+}
+
+.main-area {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+/* Hexagon Hover Effect (handled in JS, but CSS class for cursor) */
+canvas {
+    cursor: crosshair;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+}
+
+.toast-msg {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    border-left: 4px solid var(--accent-color);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
