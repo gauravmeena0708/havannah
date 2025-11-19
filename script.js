@@ -45,18 +45,27 @@ class Renderer {
   }
 
   drawBoard(board) {
+    console.log("drawBoard called. Layers:", this.layers);
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    let filledCount = 0;
+    // Iterate matching v1 pattern: j is column, i is row within column
     for (let j = 0; j < 2 * this.layers - 1; j++) {
       const colSize = j < this.layers ? this.layers + j : this.layers + 2 * this.layers - 2 - j;
       for (let i = 0; i < colSize; i++) {
-        if (board[i][j] === 3) continue; // Skip blocked
+        // Check if cell exists and is not blocked
+        if (!board[i] || board[i][j] === undefined || board[i][j] === 3) continue;
 
         const coords = this.calculateHexagon(i, j);
         const player = board[i][j];
+        if (player !== 0 && player !== 3) {
+          console.log(`Non-empty cell at [${i}][${j}] = ${player}`);
+          filledCount++;
+        }
         this.drawHexagon(coords, player, i, j);
       }
     }
+    console.log(`drawBoard completed. Total filled cells: ${filledCount}`);
   }
 
   drawHexagon(coords, player, r, c) {
@@ -97,6 +106,13 @@ class Renderer {
 
     // Reset shadow
     ctx.shadowBlur = 0;
+
+    // Draw cell index label
+    ctx.fillStyle = player === 0 ? CONFIG.colors.text : '#000';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`(${r},${c})`, center.x, center.y);
   }
 
   calculateHexagon(i, j) {
@@ -134,11 +150,14 @@ class Renderer {
     return { x: x / coords.length, y: y / coords.length };
   }
 
-  getHexagonAt(x, y) {
+  getHexagonAt(x, y, board) {
     // Brute force check (efficient enough for this board size)
     for (let j = 0; j < 2 * this.layers - 1; j++) {
       const colSize = j < this.layers ? this.layers + j : this.layers + 2 * this.layers - 2 - j;
       for (let i = 0; i < colSize; i++) {
+        // Skip blocked cells if board is provided
+        if (board && board[i] && board[i][j] === 3) continue;
+
         const coords = this.calculateHexagon(i, j);
         if (this.isPointInPoly(x, y, coords)) {
           return [i, j];
@@ -179,85 +198,30 @@ class Renderer {
   animateParticles() {
     if (this.particles.length === 0) return;
 
-    // We need to redraw board + particles. 
-    // Ideally Game loop handles this, but for now we do it here.
-    // NOTE: This requires access to board state. 
-    // For simplicity, we'll just draw particles on top without clearing if possible, 
-    // OR we need to ask Game to redraw.
-    // Let's just animate particles on top of existing canvas for now (might leave trails).
-    // Better: Request Game to redraw.
+    // Simple particle animation - draw particles on existing canvas
+    const ctx = this.ctx;
 
-    // ... Implementation deferred to keep simple. 
-    // We will implement a basic loop in Game class instead.
-    // If AI is thinking, prevent undo?
-    if (this.isAiTurn) return;
+    this.particles.forEach((particle, index) => {
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = particle.color;
+      ctx.globalAlpha = particle.life;
+      ctx.fill();
+      ctx.globalAlpha = 1;
 
-    const steps = this.aiPlayer ? 2 : 1;
+      // Update particle
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.life -= 0.02;
 
-    for (let i = 0; i < steps; i++) {
-      if (this.history.length === 0) break;
-      const last = this.history.pop();
-      this.board = last.prevBoard;
-      this.currentPlayer = last.player; // Restore player
-    }
-
-    this.renderer.drawBoard(this.board);
-    this.updateUI();
-    if (this.history.length === 0) document.getElementById('undoBtn').disabled = true;
-  }
-
-  switchPlayer() {
-    this.currentPlayer = 1 - this.currentPlayer;
-    this.updateUI();
-
-    if (this.currentPlayer === 1 && this.aiPlayer) {
-      this.isAiTurn = true;
-      setTimeout(() => {
-        const move = this.aiPlayer.getMove(this.board);
-        this.isAiTurn = false;
-        if (move) this.makeMove(move[0], move[1]);
-      }, 500);
-    }
-  }
-
-  updateUI() {
-    const p = this.currentPlayer + 1;
-    const el = document.getElementById('currentTurn');
-    el.textContent = `Current Turn: Player ${p}`;
-    el.style.color = p === 1 ? CONFIG.colors.p1.main : CONFIG.colors.p2.main;
-  }
-
-  startTimer() {
-    if (this.timerId) clearInterval(this.timerId);
-    this.timerId = setInterval(() => {
-      if (this.gameOver) return;
-      this.time[this.currentPlayer]--;
-      if (this.time[this.currentPlayer] <= 0) {
-        this.endGame(3 - (this.currentPlayer + 1), 'timeout'); // Opponent wins
+      if (particle.life <= 0) {
+        this.particles.splice(index, 1);
       }
-      this.updateTimerDisplay();
-    }, 1000);
-  }
+    });
 
-  updateTimerDisplay() {
-    const fmt = (t) => {
-      const m = Math.floor(t / 60);
-      const s = t % 60;
-      return `${m}:${s < 10 ? '0' : ''}${s}`;
-    };
-    document.getElementById('player1Time').textContent = fmt(this.time[0]);
-    document.getElementById('player2Time').textContent = fmt(this.time[1]);
-  }
-
-  endGame(winner, reason) {
-    this.gameOver = true;
-    clearInterval(this.timerId);
-    const msg = `Game Over! Player ${winner} wins by ${reason}!`;
-    document.getElementById('winner').textContent = msg;
-    this.renderer.triggerCelebration(winner);
-
-    // Show Toast
-    this.showToast(msg);
+    if (this.particles.length > 0) {
+      this.animationFrameId = requestAnimationFrame(() => this.animateParticles());
+    }
   }
 
   showToast(msg) {
@@ -427,6 +391,32 @@ function getAllCorners(dim) {
   ].map(([x, y]) => `${x},${y}`);
 }
 
+function getEdge(vertex, dim) {
+  let [i, j] = vertex;
+  const mid = Math.floor(dim / 2);
+
+  if (j === 0 && i > 0 && i < mid) return 0; // Left
+  if (i === 0 && j > 0 && j < mid) return 1; // Top-left
+  if (i === 0 && j > mid && j < dim - 1) return 2; // Top-right
+  if (j === dim - 1 && i > 0 && i < mid) return 3; // Right
+  if (i === dim - 1 - j + mid && j > mid && j < dim - 1) return 4; // Bottom-right
+  if (i === j + mid && j > 0 && j < mid) return 5; // Bottom-left
+  return -1;
+}
+
+function getCorner(vertex, dim) {
+  let [i, j] = vertex;
+  const mid = Math.floor(dim / 2);
+
+  if (i === 0 && j === 0) return 0; // Top-left
+  if (i === 0 && j === mid) return 1; // Top-middle
+  if (i === 0 && j === dim - 1) return 2; // Top-right
+  if (i === mid && j === dim - 1) return 3; // Middle-right
+  if (i === dim - 1 && j === mid) return 4; // Bottom-middle
+  if (i === mid && j === 0) return 5; // Middle-left
+
+  return -1;
+}
 
 function getNeighbours(dim, vertex) {
   let [i, j] = vertex;
@@ -494,9 +484,11 @@ class Game {
   }
 
   start() {
+    console.log("=== Game.start() called ===");
     // Get settings
     this.layers = parseInt(this.ui.sizeSelect.value);
     const p2Type = this.ui.player2Type.value;
+    console.log("Layers:", this.layers, "Player 2 Type:", p2Type);
 
     // Setup AI
     if (p2Type === 'ai') {
@@ -509,6 +501,7 @@ class Game {
 
     // Reset State
     this.board = this.createBoard(this.layers);
+    console.log("Board created:", JSON.stringify(this.board));
     this.currentPlayer = 1;
     this.gameOver = false;
     this.isAiTurn = false;
@@ -523,29 +516,36 @@ class Game {
 
     // Resize & Draw
     this.renderer.resize(this.layers);
+    console.log("About to draw board. Board state:", JSON.stringify(this.board));
     this.renderer.drawBoard(this.board);
+    console.log("=== Game.start() completed ===");
 
     // Start Timer
     this.startTimer();
   }
 
   createBoard(layers) {
+    // Create board matching v1 format: square grid with blocked cells marked as 3
     const board = [];
-    // Max width is 2*layers - 1 + (layers-1) = 3*layers - 2? 
-    // Let's follow the renderer logic:
-    // Col 0 has 'layers' cells.
-    // Col layers-1 has '2*layers - 1' cells.
-    // Total columns = 2*layers - 1.
+    const dim = 2 * layers - 1;
 
-    const numCols = 2 * layers - 1;
-    for (let i = 0; i < numCols; i++) {
-      const col = [];
-      const colHeight = i < layers ? layers + i : layers + (numCols - 1 - i);
-      for (let j = 0; j < colHeight; j++) {
-        col.push(0); // 0 = empty
+    // Initialize the board with empty cells (0 represents empty)
+    for (let i = 0; i < dim; i++) {
+      const row = [];
+      for (let j = 0; j < dim; j++) {
+        row.push(0); // Initialize all tiles to 0 (empty)
       }
-      board.push(col);
+      board.push(row);
     }
+
+    // Block tiles on the lower triangular side (same as v1)
+    for (let i = layers; i < dim; i++) {
+      for (let j = 0; j < i - layers + 1; j++) {
+        board[i][j] = 3; // Blocked
+        board[i][dim - 1 - j] = 3; // Blocked
+      }
+    }
+
     return board;
   }
 
@@ -556,10 +556,10 @@ class Game {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const hex = this.renderer.getHexagonAt(x, y);
+    const hex = this.renderer.getHexagonAt(x, y, this.board);
     if (hex) {
       const [i, j] = hex;
-      if (this.board[i][j] === 0) {
+      if (this.board[i] && this.board[i][j] === 0) {
         this.makeMove(i, j);
       }
     }
@@ -679,6 +679,5 @@ class Game {
 // --- Initialization ---
 window.onload = () => {
   gameInstance = new Game();
-  // Start default game
-  gameInstance.start();
+  // Don't auto-start - wait for user to click "Initialize Protocol" button
 };
