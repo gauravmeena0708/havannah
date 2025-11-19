@@ -78,8 +78,8 @@ function testIsValid() {
     assertTrue(isValid(0, 6, dim), "isValid(0,6) for layers=4 (Top-most of col 6)");
     assertTrue(isValid(3, 6, dim), "isValid(3,6) for layers=4 (Bottom-most of col 6)");
     assertTrue(isValid(1, 1, dim), "isValid(1,1) for layers=4 (Inner point)");
-    assertTrue(isValid(layers-1, 0, dim), "isValid(layers-1, 0) e.g. (3,0) for layers=4"); // Max x for col 0
-    assertTrue(isValid(layers + 0 -1, 0, dim), "isValid(layers+y-1, y) for y=0 => (3,0) for L4");
+    assertTrue(isValid(layers - 1, 0, dim), "isValid(layers-1, 0) e.g. (3,0) for layers=4"); // Max x for col 0
+    assertTrue(isValid(layers + 0 - 1, 0, dim), "isValid(layers+y-1, y) for y=0 => (3,0) for L4");
 
     // colHeight for y=0 (layers+y) = 4+0 = 4. Valid x: 0,1,2,3
     assertTrue(isValid(0, 0, dim), "isValid(0,0, L4)");
@@ -178,8 +178,8 @@ function testGetNeighbours() {
     // Expected neighbors for (i,j) where j == siz:
     // (i-1,j), (i+1,j), (i,j-1), (i,j+1), (i-1,j-1), (i-1,j+1)
     // For (3,3): (2,3), (4,3), (3,2), (3,4), (2,2), (2,4)
-    let neighbors1 = getNeighbours(dim, [3,3]);
-    let expected1 = [[2,3], [4,3], [3,2], [3,4], [2,2], [2,4]];
+    let neighbors1 = getNeighbours(dim, [3, 3]);
+    let expected1 = [[2, 3], [4, 3], [3, 2], [3, 4], [2, 2], [2, 4]];
     assertDeepEquals(sortNeighbors(expected1), sortNeighbors(neighbors1), "testGetNeighbours: Central cell (3,3) for L4");
 
     // Test case 2: Corner cell (0,0) (i=0, j=0). Here j < siz.
@@ -200,8 +200,8 @@ function testGetNeighbours() {
     // if (i > 0 && j >= siz && j < dim - 1) neighbours.push([i - 1, j + 1]); -> no (j not >= siz)
     // if (i < dim - 1 && j < siz) neighbours.push([i + 1, j + 1]); -> (1,1)
     // if (i < dim - 1 && j > siz) neighbours.push([i + 1, j - 1]); -> no (j not > siz)
-    let neighbors2 = getNeighbours(dim, [0,0]);
-    let expected2 = [[1,0], [0,1], [1,1]]; // Based on the actual logic of getNeighbours
+    let neighbors2 = getNeighbours(dim, [0, 0]);
+    let expected2 = [[1, 0], [0, 1], [1, 1]]; // Based on the actual logic of getNeighbours
     assertDeepEquals(sortNeighbors(expected2), sortNeighbors(neighbors2), "testGetNeighbours: Corner cell (0,0) for L4");
 
     // Test case 3: Cell (1,2) (i=1, j=2). Here j < siz.
@@ -209,8 +209,8 @@ function testGetNeighbours() {
     // Diag (j < siz):
     //   (i > 0 && j <= siz && j > 0) -> (true && true && true) -> neighbours.push([i-1,j-1]) -> (0,1)
     //   (i < dim-1 && j < siz) -> (true && true) -> neighbours.push([i+1,j+1]) -> (2,3)
-    let neighbors3 = getNeighbours(dim, [1,2]);
-    let expected3 = [[0,2], [2,2], [1,1], [1,3], [0,1], [2,3]];
+    let neighbors3 = getNeighbours(dim, [1, 2]);
+    let expected3 = [[0, 2], [2, 2], [1, 1], [1, 3], [0, 1], [2, 3]];
     assertDeepEquals(sortNeighbors(expected3), sortNeighbors(neighbors3), "testGetNeighbours: Cell (1,2) for L4 (j < siz)");
 
     // Test case 4: Cell (1,4) (i=1, j=4). Here j > siz.
@@ -218,8 +218,8 @@ function testGetNeighbours() {
     // Diag (j > siz):
     //  (i > 0 && j >= siz && j < dim-1) -> (true && true && true) -> neighbours.push([i-1,j+1]) -> (0,5)
     //  (i < dim-1 && j > siz) -> (true && true) -> neighbours.push([i+1,j-1]) -> (2,3)
-    let neighbors4 = getNeighbours(dim, [1,4]);
-    let expected4 = [[0,4], [2,4], [1,3], [1,5], [0,5], [2,3]];
+    let neighbors4 = getNeighbours(dim, [1, 4]);
+    let expected4 = [[0, 4], [2, 4], [1, 3], [1, 5], [0, 5], [2, 3]];
     assertDeepEquals(sortNeighbors(expected4), sortNeighbors(neighbors4), "testGetNeighbours: Cell (1,4) for L4 (j > siz)");
 
     window.layers = originalLayers;
@@ -254,71 +254,72 @@ function testCheckFork() {
     // E2: x=i, y=i+siz-1. For i=0, (0,3). For i=1, (1,4)
     // Let's try to connect (1,1) to (1,0) [E0], (0,1) [E1], and (0,3) [E2, via (0,2) or (1,2)-(0,3)]
     let playerCellsFork = [
-        [1,1], // lastMove
+        [1, 1], // lastMove
         // Path to Edge 0 (y=0)
-        [1,0],
+        [1, 0],
         // Path to Edge 1 (x=0)
-        [0,1],
+        [0, 1],
         // Path to Edge 2 (top-right diagonal, e.g. (0,3))
-        [1,2], [0,2], [0,3] // (1,1) -> (1,2) -> (0,2) -> (0,3) which is on edge 2
+        [1, 2], [0, 2], [0, 3] // (1,1) -> (1,2) -> (0,2) -> (0,3) which is on edge 2
     ];
     let boardFork = createBooleanBoard(dim, playerCellsFork);
     // Note: checkFork internally calls bfsReachable which uses the player number from the *original* board.
     // For testing checkFork in isolation with a boolean board, bfsReachable needs to be adapted or
     // checkFork needs to be called with a board where true means player stone.
     // The current checkWin correctly converts the board to boolean before calling checkFork.
-    assertTrue(checkFork(boardFork, [1,1]), "Fork Test 1: Should detect fork for (1,1)");
+    assertTrue(checkFork(boardFork, [1, 1]), "Fork Test 1: Should detect fork for (1,1)");
 
     // Test Case 1.2: Another fork, move is on an edge connecting 2, and a path to 3rd.
     // Move (0,0) is on E0 and E1. Path to E5 (bottom-left diagonal)
     playerCellsFork = [
-        [0,0], // lastMove, on Edge 0 (y=0) and Edge 1 (x=0)
-        [1,0], [2,0], [3,0], // Part of Edge 0
-        [0,1], [0,2], [0,3], // Part of Edge 1
+        [0, 0], // lastMove, on Edge 0 (y=0) and Edge 1 (x=0)
+        [1, 0], [2, 0], [3, 0], // Part of Edge 0
+        [0, 1], [0, 2], [0, 3], // Part of Edge 1
         // Path to a third edge, e.g., E2 (0,3), (1,4), (2,5), (3,6)
         // Let's connect (0,0) to (0,3) (which is on E1 and E2)
         // And connect (0,0) to (3,0) (which is on E0 and E5: (3,0),(4,1),(5,2),(6,3))
         // So (0,0) connects E0, E1. (0,3) connects E1, E2. (3,0) connects E0, E5.
         // If lastMove is (0,0), it's on E0 and E1. Need one more.
         // Path: (0,0) -> (1,1) -> (1,2) -> (0,2) -> (0,3) (on E2)
-        playerCellsFork = [[0,0], [1,1], [1,2], [0,2], [0,3]];
+        // Path: (0,0) -> (1,1) -> (1,2) -> (0,2) -> (0,3) (on E2)
+        playerCellsFork = [[0, 0], [1, 1], [1, 2], [0, 2], [0, 3]];
         boardFork = createBooleanBoard(dim, playerCellsFork);
-        assertTrue(checkFork(boardFork, [0,0]), "Fork Test 1.2: Should detect fork for (0,0)");
+        assertTrue(checkFork(boardFork, [0, 0]), "Fork Test 1.2: Should detect fork for (0,0)");
 
 
-    // Test Case 2: Fork not present (only 2 edges connected)
-    // Piece (1,1) connects to (1,0) [E0] and (0,1) [E1]
-    let playerCellsNoFork2Edges = [
-        [1,1], // lastMove
-        [1,0],
-        [0,1]
-    ];
-    let boardNoFork2Edges = createBooleanBoard(dim, playerCellsNoFork2Edges);
-    assertFalse(checkFork(boardNoFork2Edges, [1,1]), "Fork Test 2: Should not detect fork (2 edges)");
+        // Test Case 2: Fork not present (only 2 edges connected)
+        // Piece (1,1) connects to (1,0) [E0] and (0,1) [E1]
+        let playerCellsNoFork2Edges = [
+            [1, 1], // lastMove
+            [1, 0],
+            [0, 1]
+        ];
+        let boardNoFork2Edges = createBooleanBoard(dim, playerCellsNoFork2Edges);
+        assertFalse(checkFork(boardNoFork2Edges, [1, 1]), "Fork Test 2: Should not detect fork (2 edges)");
 
-    // Test Case 3: No edges connected by paths from lastMove
-    let playerCellsNoForkScatter = [
-        [3,3], // lastMove (center)
-        [1,1], [5,5] // some other disconnected cells
-    ];
-    let boardNoForkScatter = createBooleanBoard(dim, playerCellsNoForkScatter);
-    assertFalse(checkFork(boardNoForkScatter, [3,3]), "Fork Test 3: No edges connected from (3,3)");
+        // Test Case 3: No edges connected by paths from lastMove
+        let playerCellsNoForkScatter = [
+            [3, 3], // lastMove (center)
+            [1, 1], [5, 5] // some other disconnected cells
+        ];
+        let boardNoForkScatter = createBooleanBoard(dim, playerCellsNoForkScatter);
+        assertFalse(checkFork(boardNoForkScatter, [3, 3]), "Fork Test 3: No edges connected from (3,3)");
 
-    // Test Case 4: Single line of stones, only touches 2 edges at ends
-    let playerCellsLine = [[0,0],[1,0],[2,0],[3,0]]; // Line on Edge 0
-    let boardLine = createBooleanBoard(dim, playerCellsLine);
-    assertFalse(checkFork(boardLine, [1,0]), "Fork Test 4: Line of stones on one edge, move in middle");
-    assertFalse(checkFork(boardLine, [0,0]), "Fork Test 4.1: Line of stones on one edge, move at end");
+        // Test Case 4: Single line of stones, only touches 2 edges at ends
+        let playerCellsLine = [[0, 0], [1, 0], [2, 0], [3, 0]]; // Line on Edge 0
+        let boardLine = createBooleanBoard(dim, playerCellsLine);
+        assertFalse(checkFork(boardLine, [1, 0]), "Fork Test 4: Line of stones on one edge, move in middle");
+        assertFalse(checkFork(boardLine, [0, 0]), "Fork Test 4.1: Line of stones on one edge, move at end");
 
 
-    // Test Case 5: A 'V' shape connecting two edges, move at the vertex. This is NOT a fork.
-    // (0,0) is on E0, E1.
-    let playerCellsVShape = [[1,0], [0,0], [0,1]]; // Move (0,0)
-    let boardVShape = createBooleanBoard(dim, playerCellsVShape);
-    assertFalse(checkFork(boardVShape, [0,0]), "Fork Test 5: V-shape connecting 2 edges from corner");
+        // Test Case 5: A 'V' shape connecting two edges, move at the vertex. This is NOT a fork.
+        // (0,0) is on E0, E1.
+        let playerCellsVShape = [[1, 0], [0, 0], [0, 1]]; // Move (0,0)
+        let boardVShape = createBooleanBoard(dim, playerCellsVShape);
+        assertFalse(checkFork(boardVShape, [0, 0]), "Fork Test 5: V-shape connecting 2 edges from corner");
 
-    window.layers = originalLayers;
-    console.log("--- testCheckFork Finished ---");
+        window.layers = originalLayers;
+        console.log("--- testCheckFork Finished ---");
 }
 
 function testCheckBridge() {
@@ -337,37 +338,37 @@ function testCheckBridge() {
     // Test Case 1: Bridge present
     // Connects (0,0) and (3,6)
     // Path: (0,0) -> (1,1) -> (2,2) -> (3,3) -> (3,4) -> (3,5) -> (3,6)
-    let playerCellsBridge = [[0,0], [1,1], [2,2], [3,3], [3,4], [3,5], [3,6]];
+    let playerCellsBridge = [[0, 0], [1, 1], [2, 2], [3, 3], [3, 4], [3, 5], [3, 6]];
     let boardBridge = createBooleanBoard(dim, playerCellsBridge);
-    let resultBridge = checkForkAndBridge(boardBridge, [3,6]); // lastMove completes bridge
+    let resultBridge = checkForkAndBridge(boardBridge, [3, 6]); // lastMove completes bridge
     assertDeepEquals([true, "bridge"], resultBridge, "Bridge Test 1: Should detect bridge (0,0) to (3,6)");
 
     // Test Case 1.2: Bridge present, different corners
     // Connects (0,3) and (6,0)
     // Path: (0,3) -> (1,3) -> (2,3) -> (3,3) -> (4,2) -> (5,1) -> (6,0)
-    playerCellsBridge = [[0,3], [1,3], [2,3], [3,3], [4,2], [5,1], [6,0]];
+    playerCellsBridge = [[0, 3], [1, 3], [2, 3], [3, 3], [4, 2], [5, 1], [6, 0]];
     boardBridge = createBooleanBoard(dim, playerCellsBridge);
-    resultBridge = checkForkAndBridge(boardBridge, [6,0]);
+    resultBridge = checkForkAndBridge(boardBridge, [6, 0]);
     assertDeepEquals([true, "bridge"], resultBridge, "Bridge Test 1.2: Should detect bridge (0,3) to (6,0)");
 
     // Test Case 2: Bridge not present (path to only one corner)
-    let playerCellsNoBridge = [[0,0], [1,1], [2,2]]; // Path from (0,0) but not to another corner
+    let playerCellsNoBridge = [[0, 0], [1, 1], [2, 2]]; // Path from (0,0) but not to another corner
     let boardNoBridge = createBooleanBoard(dim, playerCellsNoBridge);
-    let resultNoBridge = checkForkAndBridge(boardNoBridge, [2,2]);
+    let resultNoBridge = checkForkAndBridge(boardNoBridge, [2, 2]);
     assertFalse(resultNoBridge[0] && resultNoBridge[1] === "bridge", "Bridge Test 2: Should not detect bridge (one corner)");
 
     // Test Case 3: Incomplete path between two corners
-    playerCellsNoBridge = [[0,0], [1,1], [3,3], [3,4], [3,5], [3,6]]; // Gap at (2,2)
+    playerCellsNoBridge = [[0, 0], [1, 1], [3, 3], [3, 4], [3, 5], [3, 6]]; // Gap at (2,2)
     boardNoBridge = createBooleanBoard(dim, playerCellsNoBridge);
-    resultNoBridge = checkForkAndBridge(boardNoBridge, [3,6]);
+    resultNoBridge = checkForkAndBridge(boardNoBridge, [3, 6]);
     assertFalse(resultNoBridge[0] && resultNoBridge[1] === "bridge", "Bridge Test 3: Incomplete bridge");
 
     // Test Case 4: Path connects two points on the same edge, not corners
     // Edge 0: (0,0) to (3,0). Path (0,0)-(1,0)-(2,0)
-    let playerCellsSameEdge = [[0,0],[1,0],[2,0]];
+    let playerCellsSameEdge = [[0, 0], [1, 0], [2, 0]];
     let boardSameEdge = createBooleanBoard(dim, playerCellsSameEdge);
-    let resultSameEdge = checkForkAndBridge(boardSameEdge, [2,0]);
-     assertFalse(resultSameEdge[0] && resultSameEdge[1] === "bridge", "Bridge Test 4: Path on same edge, not corners");
+    let resultSameEdge = checkForkAndBridge(boardSameEdge, [2, 0]);
+    assertFalse(resultSameEdge[0] && resultSameEdge[1] === "bridge", "Bridge Test 4: Path on same edge, not corners");
 
 
     window.layers = originalLayers;
@@ -382,22 +383,22 @@ function testCheckRing() {
 
     // Test Case 1: Valid 6-cell ring
     // Ring: (1,1) -> (0,1) -> (0,2) -> (1,2) -> (2,1) -> (1,0) -> (1,1)
-    let playerCellsRing6 = [[1,1], [0,1], [0,2], [1,2], [2,1], [1,0]];
+    let playerCellsRing6 = [[1, 1], [0, 1], [0, 2], [1, 2], [2, 1], [1, 0]];
     let boardRing6 = createBooleanBoard(dim, playerCellsRing6);
-    assertTrue(checkRing(boardRing6, [1,1]), "Ring Test 1: Should detect 6-cell ring, move=(1,1)");
-    assertTrue(checkRing(boardRing6, [0,2]), "Ring Test 1.1: Should detect 6-cell ring, move=(0,2) (another cell in ring)");
+    assertTrue(checkRing(boardRing6, [1, 1]), "Ring Test 1: Should detect 6-cell ring, move=(1,1)");
+    assertTrue(checkRing(boardRing6, [0, 2]), "Ring Test 1.1: Should detect 6-cell ring, move=(0,2) (another cell in ring)");
 
     // Test Case 2: Valid 7-cell ring
     // Ring: (2,2) -> (1,2) -> (0,2) -> (0,3) -> (1,3) -> (2,3) -> (3,3) -> (2,2)
-    let playerCellsRing7 = [[2,2], [1,2], [0,2], [0,3], [1,3], [2,3], [3,3]];
+    let playerCellsRing7 = [[2, 2], [1, 2], [0, 2], [0, 3], [1, 3], [2, 3], [3, 3]];
     let boardRing7 = createBooleanBoard(dim, playerCellsRing7);
-    assertTrue(checkRing(boardRing7, [2,2]), "Ring Test 2: Should detect 7-cell ring");
+    assertTrue(checkRing(boardRing7, [2, 2]), "Ring Test 2: Should detect 7-cell ring");
 
     // Test Case 3: Incomplete ring (gap in cells)
     // Same as 6-cell ring, but [0,2] is missing
-    let playerCellsIncompleteRing = [[1,1], [0,1], /*[0,2],*/ [1,2], [2,1], [1,0]];
+    let playerCellsIncompleteRing = [[1, 1], [0, 1], /*[0,2],*/[1, 2], [2, 1], [1, 0]];
     let boardIncompleteRing = createBooleanBoard(dim, playerCellsIncompleteRing);
-    assertFalse(checkRing(boardIncompleteRing, [1,1]), "Ring Test 3: Incomplete ring (missing one cell)");
+    assertFalse(checkRing(boardIncompleteRing, [1, 1]), "Ring Test 3: Incomplete ring (missing one cell)");
 
     // Test Case 4: Cycle too short (5 cells - theoretically, though hard to form naturally without being a line)
     // (1,1)-(0,1)-(0,2)-(1,2)-(1,0)-(1,1) - this is 5 cells
@@ -408,25 +409,25 @@ function testCheckRing() {
     // (1,1) -> (0,1) -> (0,2) -> (1,2) -> (1,1) - path (0,1)->(0,2)->(1,2) is L=3. Cycle is 4.
     // (1,1) -> (0,1) -> (1,0) -> (2,0) -> (2,1) -> (1,1) is a 5-cycle.
     // lastMove = (1,1). Neighbors (0,1), (2,1). Path (0,1)->(1,0)->(2,0)->(2,1). Path L=4. Cycle L+1=5.
-    let playerCellsShortCycle = [[1,1], [0,1], [1,0], [2,0], [2,1]];
+    let playerCellsShortCycle = [[1, 1], [0, 1], [1, 0], [2, 0], [2, 1]];
     let boardShortCycle = createBooleanBoard(dim, playerCellsShortCycle);
-    assertFalse(checkRing(boardShortCycle, [1,1]), "Ring Test 4: Cycle of 5 cells should be false");
+    assertFalse(checkRing(boardShortCycle, [1, 1]), "Ring Test 4: Cycle of 5 cells should be false");
 
     // Test Case 5: A line of 6 cells (should not be a ring)
-    let playerCellsLine = [[0,0], [1,0], [2,0], [3,0], [4,0], [5,0]];
+    let playerCellsLine = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0]];
     let boardLine = createBooleanBoard(dim, playerCellsLine);
-    assertFalse(checkRing(boardLine, [2,0]), "Ring Test 5: Line of 6 cells is not a ring");
-    assertFalse(checkRing(boardLine, [0,0]), "Ring Test 5.1: Line of 6 cells, move at end, is not a ring");
+    assertFalse(checkRing(boardLine, [2, 0]), "Ring Test 5: Line of 6 cells is not a ring");
+    assertFalse(checkRing(boardLine, [0, 0]), "Ring Test 5.1: Line of 6 cells, move at end, is not a ring");
 
     // Test Case 6: Not a ring - simple line
-    let playerCellsNotRing = [[1,1], [1,2], [1,3]];
+    let playerCellsNotRing = [[1, 1], [1, 2], [1, 3]];
     let boardNotRing = createBooleanBoard(dim, playerCellsNotRing);
-    assertFalse(checkRing(boardNotRing, [1,2]), "Ring Test 6: Simple line is not a ring");
+    assertFalse(checkRing(boardNotRing, [1, 2]), "Ring Test 6: Simple line is not a ring");
 
     // Test Case 7: Disconnected components that look like parts of a ring but aren't connected
-    let playerCellsDisconnected = [[1,1],[0,1],[0,2],  [3,3],[2,3],[2,2]];
+    let playerCellsDisconnected = [[1, 1], [0, 1], [0, 2], [3, 3], [2, 3], [2, 2]];
     let boardDisconnected = createBooleanBoard(dim, playerCellsDisconnected);
-    assertFalse(checkRing(boardDisconnected, [1,1]), "Ring Test 7: Disconnected components");
+    assertFalse(checkRing(boardDisconnected, [1, 1]), "Ring Test 7: Disconnected components");
 
 
     window.layers = originalLayers;
