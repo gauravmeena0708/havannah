@@ -411,20 +411,39 @@ function bfsReachable(board, start) {
 
 // Fixing edges identification
 function getAllEdges(dim) {
-  const siz = Math.floor((dim + 1) / 2);
-  // We want only the inner points of the edges, excluding corners.
-  // A side has 'siz' points. Removing 2 corners leaves 'siz - 2' points.
-  // We iterate i from 1 to siz - 2.
+  const layers = (dim + 1) / 2;
+  const range = Array.from({ length: layers - 2 }, (_, i) => i + 1);
 
-  const range = Array.from({ length: siz - 2 }, (_, i) => i + 1);
+  // Helper to get bottom index of a column
+  const getBottomIndex = (col) => {
+    if (col < layers) return layers + col - 1;
+    return layers + (2 * layers - 2) - col - 1;
+  };
 
   const edges = [
-    range.map(i => [i, 0]), // Left edge
-    range.map(i => [0, i]), // Top-left edge
-    range.map(i => [i, i + siz - 1]), // Top-right edge
-    range.map(i => [i + siz - 1, dim - 1]), // Right edge
-    range.map(i => [dim - 1, i + siz - 1]), // Bottom-right edge
-    range.map(i => [i + siz - 1, i]), // Bottom-left edge
+    // Left Edge (Col 0)
+    range.map(k => [k, 0]),
+
+    // Top-Left Edge (Top of Cols 1..layers-2)
+    range.map(k => [0, k]),
+
+    // Top-Right Edge (Top of Cols layers..dim-2)
+    range.map(k => [0, layers - 1 + k]),
+
+    // Right Edge (Col dim-1)
+    range.map(k => [k, dim - 1]),
+
+    // Bottom-Right Edge (Bottom of Cols dim-2..layers)
+    range.map(k => {
+      const col = dim - 1 - k;
+      return [getBottomIndex(col), col];
+    }),
+
+    // Bottom-Left Edge (Bottom of Cols layers-2..1)
+    range.map(k => {
+      const col = k; // Cols 1 to layers-2
+      return [getBottomIndex(col), col];
+    })
   ];
   return edges.map((edge) => new Set(edge.map((e) => `${e[0]},${e[1]}`)));
 }
@@ -953,4 +972,34 @@ function endGame(winner, structure) {
   if (winner) {
     triggerCelebration();
   }
+}
+
+function runForkTest() {
+  document.getElementById("sizeSelect").value = "4";
+  document.getElementById("player2Type").value = "human";
+  startGame();
+
+  const moves = [
+    [1, 0], // P1 (Left Edge)
+    [3, 3], // P2
+    [0, 1], // P1 (Top-Left Edge)
+    [3, 2], // P2
+    [2, 0], // P1 (Left Edge)
+    [4, 2], // P2
+    [4, 1], // P1 (Bottom-Left Edge)
+    [4, 3], // P2
+    [0, 0], // P1 (Corner connecting Left and Top-Left)
+    [5, 3], // P2
+    [3, 0]  // P1 (Corner connecting Left and Bottom-Left)
+  ];
+
+  let i = 0;
+  function nextMove() {
+    if (i >= moves.length) return;
+    const [r, c] = moves[i];
+    makeMove(r, c);
+    i++;
+    setTimeout(nextMove, 500);
+  }
+  nextMove();
 }
