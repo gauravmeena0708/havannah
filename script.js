@@ -17,185 +17,101 @@ const CONFIG = {
   }
 };
 
-// --- Renderer Class ---
-class Renderer {
-  constructor(canvasId) {
-    this.canvas = document.getElementById(canvasId);
-    this.ctx = this.canvas.getContext('2d');
-    this.hexSize = 0;
-    this.layers = 0;
-    this.particles = [];
-    this.animationFrameId = null;
+// --- Game Class ---
+class Game {
+  constructor() {
+    this.renderer = new Renderer('gameCanvas');
+    this.aiPlayer = null;
+    this.history = [];
+    this.isAiTurn = false;
+    this.time = [300, 300];
+    this.timerId = null;
+
+    this.setupEventListeners();
   }
 
-  resize(layers) {
-    this.layers = layers;
-    const screenHeight = window.innerHeight;
-    const maxCanvasSize = screenHeight - 100; // Keep space for UI
-    const padding = 20;
-
-    // Calculate hex size to fit the board
-    // Board width ~= 3 * layers * hexSize
-    // Board height ~= 2 * layers * hexSize * sqrt(3)
-    this.hexSize = Math.floor((maxCanvasSize - padding) / (3 * layers));
-
-    const size = this.hexSize * 3 * layers + padding;
-    this.canvas.width = size;
-    this.canvas.height = size;
+  setupEventListeners() {
+    document.getElementById('startGameBtn').addEventListener('click', () => this.start());
+    document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+    this.renderer.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
   }
 
-  drawBoard(board) {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  start() {
+    const size = parseInt(document.getElementById('sizeSelect').value, 10);
+    const player2Type = document.getElementById('player2Type').value;
 
-    for (let j = 0; j < 2 * this.layers - 1; j++) {
-      const colSize = j < this.layers ? this.layers + j : this.layers + 2 * this.layers - 2 - j;
-      for (let i = 0; i < colSize; i++) {
-        if (board[i][j] === 3) continue; // Skip blocked
+    this.layers = size;
+    this.renderer.resize(this.layers);
+    this.board = this.createBoard(this.layers);
+    this.currentPlayer = 0;
+    this.gameOver = false;
+    this.history = [];
+    document.getElementById('undoBtn').disabled = true;
+    document.getElementById('winner').textContent = '';
 
-        const coords = this.calculateHexagon(i, j);
-        const player = board[i][j];
-        this.drawHexagon(coords, player, i, j);
-      }
-    }
-  }
-
-  drawHexagon(coords, player, r, c) {
-    const ctx = this.ctx;
-    const center = this.calculateCentroid(coords);
-
-    ctx.beginPath();
-    ctx.moveTo(coords[0].x, coords[0].y);
-    coords.forEach(p => ctx.lineTo(p.x, p.y));
-    ctx.closePath();
-
-    // Style based on content
-    if (player === 0) {
-      ctx.fillStyle = CONFIG.colors.empty.main;
-      ctx.strokeStyle = CONFIG.colors.empty.border;
-      ctx.lineWidth = 1;
+    if (player2Type === 'ai') {
+      this.aiPlayer = new AIPlayer(2);
+    } else if (player2Type === 'ai2') {
+      this.aiPlayer = new AIPlayer2(2);
     } else {
-      const color = player === 1 ? CONFIG.colors.p1 : CONFIG.colors.p2;
-
-      // Gradient for 3D effect
-      const grad = ctx.createRadialGradient(
-        center.x - this.hexSize / 3, center.y - this.hexSize / 3, this.hexSize / 10,
-        center.x, center.y, this.hexSize
-      );
-      grad.addColorStop(0, color.light);
-      grad.addColorStop(1, color.main);
-
-      ctx.fillStyle = grad;
-      ctx.shadowColor = color.shadow;
-      ctx.shadowBlur = 15;
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-      ctx.lineWidth = 2;
+      this.aiPlayer = null;
     }
 
-    ctx.fill();
-    ctx.stroke();
-
-    // Reset shadow
-    ctx.shadowBlur = 0;
-
-    // Debug coordinates (optional, can be toggled)
-    // ctx.fillStyle = CONFIG.colors.text;
-    // ctx.font = '10px Arial';
-    // ctx.textAlign = 'center';
-    // ctx.textBaseline = 'middle';
-    // ctx.fillText(`${r},${c}`, center.x, center.y);
+    this.renderer.drawBoard(this.board);
+    this.updateUI();
+    this.startTimer();
   }
 
-  calculateHexagon(i, j) {
-    const sqrt3 = Math.sqrt(3);
-    const h = this.hexSize;
-    // Offset logic from original code
-    const offsetX = (j * h * 3) / 2;
-    const offsetY = ((Math.abs(j - this.layers + 1) + 2 * i) * h * sqrt3) / 2;
+  createBoard(layers) {
+    const dim = 2 * layers - 1;
+    const board = Array(dim).fill(null).map(() => Array(dim).fill(0));
 
-    // Centering on canvas
-    const totalWidth = this.hexSize * 3 * this.layers;
-    const totalHeight = this.hexSize * 2 * this.layers * sqrt3; // Approx
-    const startX = (this.canvas.width - totalWidth) / 2 + h; // Adjust as needed
-    const startY = 20; // Top padding
-
-    // Re-using original offset logic but adding canvas centering if needed. 
-    // For now, sticking to original exact math to ensure click detection works same way.
-    // Original:
-    // const offsetX = (j * hexSize * 3) / 2;
-    // const offsetY = ((Math.abs(j - layers + 1) + 2 * i) * hexSize * sqrt3) / 2;
-
-    return [
-      { x: h / 2 + offsetX, y: offsetY },
-      { x: (h * 3) / 2 + offsetX, y: offsetY },
-      { x: h * 2 + offsetX, y: (h * sqrt3) / 2 + offsetY },
-      { x: (h * 3) / 2 + offsetX, y: h * sqrt3 + offsetY },
-      { x: h / 2 + offsetX, y: h * sqrt3 + offsetY },
-      { x: offsetX, y: (h * sqrt3) / 2 + offsetY },
-    ];
-  }
-
-  calculateCentroid(coords) {
-    let x = 0, y = 0;
-    coords.forEach(p => { x += p.x; y += p.y; });
-    return { x: x / coords.length, y: y / coords.length };
-  }
-
-  getHexagonAt(x, y) {
-    // Brute force check (efficient enough for this board size)
-    for (let j = 0; j < 2 * this.layers - 1; j++) {
-      const colSize = j < this.layers ? this.layers + j : this.layers + 2 * this.layers - 2 - j;
-      for (let i = 0; i < colSize; i++) {
-        const coords = this.calculateHexagon(i, j);
-        if (this.isPointInPoly(x, y, coords)) {
-          return [i, j];
+    for (let j = 0; j < dim; j++) {
+      for (let i = 0; i < dim; i++) {
+        if (!isValid(i, j, dim)) {
+          board[i][j] = 3; // Blocked
         }
       }
     }
-    return null;
+    return board;
   }
 
-  isPointInPoly(x, y, coords) {
-    let inside = false;
-    for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
-      const xi = coords[i].x, yi = coords[i].y;
-      const xj = coords[j].x, yj = coords[j].y;
-      const intersect = ((yi > y) !== (yj > y)) &&
-        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
+  handleCanvasClick(event) {
+    if (this.gameOver || this.isAiTurn) return;
+
+    const rect = this.renderer.canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const hex = this.renderer.getHexagonAt(x, y);
+    if (hex) {
+      this.makeMove(hex[0], hex[1]);
     }
-    return inside;
   }
 
-  triggerCelebration(winner) {
-    const color = winner === 1 ? CONFIG.colors.p1.main : CONFIG.colors.p2.main;
-    this.particles = [];
-    for (let i = 0; i < 100; i++) {
-      this.particles.push({
-        x: this.canvas.width / 2,
-        y: this.canvas.height / 2,
-        vx: (Math.random() - 0.5) * 10,
-        vy: (Math.random() - 0.5) * 10,
-        life: 1.0,
-        color: color
-      });
+  makeMove(r, c) {
+    if (this.board[r][c] !== 0) return;
+
+    // Save current state for undo
+    this.history.push({
+      prevBoard: JSON.parse(JSON.stringify(this.board)),
+      player: this.currentPlayer
+    });
+    document.getElementById('undoBtn').disabled = false;
+
+    this.board[r][c] = this.currentPlayer + 1;
+    this.renderer.drawBoard(this.board);
+
+    const [win, reason] = checkWin(this.board, [r, c], this.currentPlayer + 1);
+    if (win) {
+      this.endGame(this.currentPlayer + 1, reason);
+      return;
     }
-    this.animateParticles();
+
+    this.switchPlayer();
   }
 
-  animateParticles() {
-    if (this.particles.length === 0) return;
-
-    // We need to redraw board + particles. 
-    // Ideally Game loop handles this, but for now we do it here.
-    // NOTE: This requires access to board state. 
-    // For simplicity, we'll just draw particles on top without clearing if possible, 
-    // OR we need to ask Game to redraw.
-    // Let's just animate particles on top of existing canvas for now (might leave trails).
-    // Better: Request Game to redraw.
-
-    // ... Implementation deferred to keep simple. 
-    // We will implement a basic loop in Game class instead.
-    // If AI is thinking, prevent undo?
+  undo() {
     if (this.isAiTurn) return;
 
     const steps = this.aiPlayer ? 2 : 1;
@@ -276,94 +192,227 @@ class Renderer {
   }
 }
 
+// --- Renderer Class ---
+class Renderer {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    this.ctx = this.canvas.getContext('2d');
+    this.hexSize = 0;
+    this.layers = 0;
+    this.particles = [];
+    this.animationFrameId = null;
+  }
+
+  resize(layers) {
+    this.layers = layers;
+    const screenHeight = window.innerHeight;
+    const maxCanvasSize = screenHeight - 100; // Keep space for UI
+    const padding = 20;
+
+    // Calculate hex size to fit the board
+    // Board width ~= 3 * layers * hexSize
+    // Board height ~= 2 * layers * hexSize * sqrt(3)
+    this.hexSize = Math.floor((maxCanvasSize - padding) / (3 * layers));
+
+    const size = this.hexSize * 3 * layers + padding;
+    this.canvas.width = size;
+    this.canvas.height = size;
+  }
+
+  drawBoard(board) {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    for (let j = 0; j < 2 * this.layers - 1; j++) {
+      const colSize = j < this.layers ? this.layers + j : this.layers + 2 * this.layers - 2 - j;
+      for (let i = 0; i < colSize; i++) {
+        if (board[i][j] === 3) continue; // Skip blocked
+
+        const coords = this.calculateHexagon(i, j);
+        const player = board[i][j];
+        this.drawHexagon(coords, player, i, j);
+      }
+    }
+  }
+
+  drawHexagon(coords, player, r, c) {
+    const ctx = this.ctx;
+    const center = this.calculateCentroid(coords);
+
+    ctx.beginPath();
+    ctx.moveTo(coords[0].x, coords[0].y);
+    coords.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.closePath();
+
+    // Style based on content
+    if (player === 0) {
+      ctx.fillStyle = CONFIG.colors.empty.main;
+      ctx.strokeStyle = CONFIG.colors.empty.border;
+      ctx.lineWidth = 1;
+    } else {
+      const color = player === 1 ? CONFIG.colors.p1 : CONFIG.colors.p2;
+
+      // Gradient for 3D effect
+      const grad = ctx.createRadialGradient(
+        center.x - this.hexSize / 3, center.y - this.hexSize / 3, this.hexSize / 10,
+        center.x, center.y, this.hexSize
+      );
+      grad.addColorStop(0, color.light);
+      grad.addColorStop(1, color.main);
+
+      ctx.fillStyle = grad;
+      ctx.shadowColor = color.shadow;
+      ctx.shadowBlur = 15;
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = 2;
+    }
+
+    ctx.fill();
+    ctx.stroke();
+
+    // Reset shadow
+    ctx.shadowBlur = 0;
+  }
+
+  calculateHexagon(i, j) {
+    const sqrt3 = Math.sqrt(3);
+    const h = this.hexSize;
+    const offsetX = (j * h * 3) / 2;
+    const offsetY = ((Math.abs(j - this.layers + 1) + 2 * i) * h * sqrt3) / 2;
+
+    return [
+      { x: h / 2 + offsetX, y: offsetY },
+      { x: (h * 3) / 2 + offsetX, y: offsetY },
+      { x: h * 2 + offsetX, y: (h * sqrt3) / 2 + offsetY },
+      { x: (h * 3) / 2 + offsetX, y: h * sqrt3 + offsetY },
+      { x: h / 2 + offsetX, y: h * sqrt3 + offsetY },
+      { x: offsetX, y: (h * sqrt3) / 2 + offsetY },
+    ];
+  }
+
+  calculateCentroid(coords) {
+    let x = 0, y = 0;
+    coords.forEach(p => { x += p.x; y += p.y; });
+    return { x: x / coords.length, y: y / coords.length };
+  }
+
+  getHexagonAt(x, y) {
+    for (let j = 0; j < 2 * this.layers - 1; j++) {
+      const colSize = j < this.layers ? this.layers + j : this.layers + 2 * this.layers - 2 - j;
+      for (let i = 0; i < colSize; i++) {
+        const coords = this.calculateHexagon(i, j);
+        if (this.isPointInPoly(x, y, coords)) {
+          return [i, j];
+        }
+      }
+    }
+    return null;
+  }
+
+  isPointInPoly(x, y, coords) {
+    let inside = false;
+    for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+      const xi = coords[i].x, yi = coords[i].y;
+      const xj = coords[j].x, yj = coords[j].y;
+      const intersect = ((yi > y) !== (yj > y)) &&
+        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  triggerCelebration(winner) {
+    // This is a purely visual effect, so it stays in the renderer.
+    // Implementation can be added later.
+  }
+}
+
 // --- Helper Functions (Win Logic) ---
-// Preserving original logic for correctness
-
 function checkWin(board, move, playerNum) {
-  // Convert to boolean board for helpers
-  const boolBoard = board.map(row => row.map(cell => cell === playerNum));
+  // Check for Bridge
+  const corners = getAllCorners(board.length);
+  const reachable = bfsReachable(board, move, playerNum);
+  let connectedCorners = 0;
+  for (const corner of corners) {
+    if (reachable.has(`${corner[0]},${corner[1]}`)) {
+      connectedCorners++;
+    }
+  }
+  if (connectedCorners >= 2) return [true, "bridge"];
 
-  if (checkRing(board, move)) return [true, "ring"];
+  // Check for Fork
+  const edges = getAllEdges(board.length);
+  let connectedEdges = 0;
+  for (const edge of edges) {
+    if (sideHasReachablePoints(edge, reachable)) {
+      connectedEdges++;
+    }
+  }
+  if (connectedEdges >= 3) return [true, "fork"];
 
-  const [win, way] = checkForkAndBridge(board, move);
-  if (win) return [true, way];
+  // Check for Ring
+  if (checkRing(board, move, playerNum)) return [true, "ring"];
 
   return [false, null];
 }
 
-function checkRing(board, move) {
-  const dim = board.length;
-  const [r, c] = move;
-  const p = board[r][c];
-  const neighbors = getNeighbours(dim, move).filter(([nr, nc]) =>
-    isValid(nr, nc, dim) && board[nr][nc] === p
-  );
+function checkRing(board, move, playerNum) {
+    const dim = board.length;
+    const [r, c] = move;
+    const p = playerNum;
+    const neighbors = getNeighbours(dim, move).filter(([nr, nc]) =>
+        isValid(nr, nc, dim) && board[nr][nc] === p
+    );
 
-  if (neighbors.length < 2) return false;
+    if (neighbors.length < 2) return false;
 
-  for (let i = 0; i < neighbors.length; i++) {
-    for (let j = i + 1; j < neighbors.length; j++) {
-      if (findRingPath(board, move, neighbors[i], neighbors[j], neighbors)) return true;
+    for (let i = 0; i < neighbors.length; i++) {
+        for (let j = i + 1; j < neighbors.length; j++) {
+            if (findRingPath(board, move, neighbors[i], neighbors[j], neighbors, playerNum)) return true;
+        }
     }
-  }
-  return false;
+    return false;
 }
 
-function findRingPath(board, move, start, end, moveNeighbors) {
-  const dim = board.length;
-  const p = board[move[0]][move[1]];
-  const excluded = new Set([`${move[0]},${move[1]}`]);
+function findRingPath(board, move, start, end, moveNeighbors, playerNum) {
+    const dim = board.length;
+    const p = playerNum;
+    const excluded = new Set([`${move[0]},${move[1]}`]);
 
-  // Exclude other immediate neighbors of move to prevent short circuits
-  moveNeighbors.forEach(n => {
-    const s = `${n[0]},${n[1]}`;
-    if (s !== `${start[0]},${start[1]}` && s !== `${end[0]},${end[1]}`) excluded.add(s);
-  });
+    moveNeighbors.forEach(n => {
+        const s = `${n[0]},${n[1]}`;
+        if (s !== `${start[0]},${start[1]}` && s !== `${end[0]},${end[1]}`) excluded.add(s);
+    });
 
-  const queue = [[start, 0]];
-  const visited = new Set([...excluded, `${start[0]},${start[1]}`]);
+    const queue = [[start, 1]]; // Path length starts at 1
+    const visited = new Set([...excluded, `${start[0]},${start[1]}`]);
 
-  while (queue.length > 0) {
-    const [curr, dist] = queue.shift();
-    const neighbors = getNeighbours(dim, curr);
+    while (queue.length > 0) {
+        const [curr, dist] = queue.shift();
+        const neighbors = getNeighbours(dim, curr);
 
-    for (const [nr, nc] of neighbors) {
-      if (!isValid(nr, nc, dim) || board[nr][nc] !== p) continue;
+        for (const [nr, nc] of neighbors) {
+            if (!isValid(nr, nc, dim) || board[nr][nc] !== p) continue;
 
-      if (nr === end[0] && nc === end[1]) {
-        return dist + 1 >= 4; // Min path length for ring
-      }
+            if (nr === end[0] && nc === end[1]) {
+                // Total path length is dist + 1 (for the end node) + 1 (for the start node to move)
+                // Wait, path is between neighbors. The total ring size is path length + 1 (the move cell)
+                if (dist + 1 >= 4) return true; // A proper ring needs at least 6 cells.
+            }
 
-      const s = `${nr},${nc}`;
-      if (!visited.has(s)) {
-        visited.add(s);
-        queue.push([[nr, nc], dist + 1]);
-      }
+            const s = `${nr},${nc}`;
+            if (!visited.has(s)) {
+                visited.add(s);
+                queue.push([[nr, nc], dist + 1]);
+            }
+        }
     }
-  }
-  return false;
+    return false;
 }
 
-function checkForkAndBridge(board, move) {
-  const visited = bfsReachable(board, move);
+
+function bfsReachable(board, start, playerNum) {
   const dim = board.length;
-  const corners = new Set(getAllCorners(dim));
-  const edges = getAllEdges(dim);
-
-  // Fork
-  const edgesConnected = edges.filter(edge => sideHasReachablePoints(edge, visited)).length;
-  if (edgesConnected >= 3) return [true, "fork"];
-
-  // Bridge
-  const cornersConnected = [...visited].filter(p => corners.has(p)).length;
-  if (cornersConnected >= 2) return [true, "bridge"];
-
-  return [false, null];
-}
-
-function bfsReachable(board, start) {
-  const dim = board.length;
-  const p = board[start[0]][start[1]];
+  const p = playerNum;
   const queue = [start];
   const visited = new Set([`${start[0]},${start[1]}`]);
 
@@ -406,31 +455,13 @@ function getAllEdges(dim) {
 function getAllCorners(dim) {
   const mid = Math.floor(dim / 2);
   return [
-    [0, 0], [0, mid], [0, dim - 1],
-    [mid, dim - 1], [dim - 1, dim - 1], [dim - 1, mid], [mid, 0], // Added missing corner? No, original had 6.
-    // Original: [0,0], [0,mid], [0,dim-1], [mid,dim-1], [dim-1,mid], [mid,0]
-    // Wait, [dim-1, dim-1] is bottom right? 
-    // Let's double check original getAllCorners logic.
-    // Original: 
-    // [0, 0], // Top-left
-    // [0, Math.floor(dim / 2)], // Top-middle
-    // [0, dim - 1], // Top-right
-    // [Math.floor(dim / 2), dim - 1], // Middle-right
-    // [dim - 1, Math.floor(dim / 2)], // Bottom-middle
-    // [Math.floor(dim / 2), 0], // Middle-left
-  ].map(([x, y]) => `${x},${y}`);
-}
-// Re-implementing getAllCorners exactly as original to be safe
-function getAllCorners(dim) {
-  const mid = Math.floor(dim / 2);
-  return [
     [0, 0],
     [0, mid],
     [0, dim - 1],
     [mid, dim - 1],
     [dim - 1, mid],
     [mid, 0]
-  ].map(([x, y]) => `${x},${y}`);
+  ];
 }
 
 
@@ -442,10 +473,20 @@ function getNeighbours(dim, vertex) {
   if (i < dim - 1) neighbours.push([i + 1, j]);
   if (j > 0) neighbours.push([i, j - 1]);
   if (j < dim - 1) neighbours.push([i, j + 1]);
-  if (i > 0 && j <= siz && j > 0) neighbours.push([i - 1, j - 1]);
-  if (i > 0 && j >= siz && j < dim - 1) neighbours.push([i - 1, j + 1]);
-  if (i < dim - 1 && j < siz) neighbours.push([i + 1, j + 1]);
-  if (i < dim - 1 && j > siz) neighbours.push([i + 1, j - 1]);
+
+  // Adjust diagonal connections for hex grid
+    if (j < siz) {
+        if (i < dim - 1) neighbours.push([i + 1, j + 1]);
+        if (i > 0) neighbours.push([i - 1, j - 1]);
+    } else if (j > siz) {
+        if (i > 0) neighbours.push([i - 1, j + 1]);
+        if (i < dim - 1) neighbours.push([i + 1, j - 1]);
+    } else { // j == siz
+        if (i > 0) {
+            neighbours.push([i - 1, j - 1]);
+            neighbours.push([i - 1, j + 1]);
+        }
+    }
   return neighbours;
 }
 
@@ -457,8 +498,8 @@ function isValid(x, y, dim) {
 }
 
 // --- Initialization ---
+let gameInstance;
 window.onload = () => {
   gameInstance = new Game();
-  // Start default game
   gameInstance.start();
 };
