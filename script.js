@@ -179,7 +179,7 @@ class Renderer {
     return inside;
   }
 
-  triggerCelebration(winner) {
+  triggerCelebration(winner, board) {
     const color = winner === 1 ? CONFIG.colors.p1.main : CONFIG.colors.p2.main;
     this.particles = [];
     for (let i = 0; i < 100; i++) {
@@ -192,16 +192,29 @@ class Renderer {
         color: color
       });
     }
-    this.animateParticles();
+    this.animateParticles(board);
   }
 
-  animateParticles() {
-    if (this.particles.length === 0) return;
+  animateParticles(board) {
+    if (this.particles.length === 0) {
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
+      return;
+    }
 
-    // Simple particle animation - draw particles on existing canvas
+    // Redraw board first, then particles on top
+    if (board) {
+      this.drawBoard(board);
+    }
+
     const ctx = this.ctx;
 
-    this.particles.forEach((particle, index) => {
+    // Update and draw particles
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const particle = this.particles[i];
+
       ctx.beginPath();
       ctx.arc(particle.x, particle.y, 3, 0, Math.PI * 2);
       ctx.fillStyle = particle.color;
@@ -215,12 +228,12 @@ class Renderer {
       particle.life -= 0.02;
 
       if (particle.life <= 0) {
-        this.particles.splice(index, 1);
+        this.particles.splice(i, 1);
       }
-    });
+    }
 
     if (this.particles.length > 0) {
-      this.animationFrameId = requestAnimationFrame(() => this.animateParticles());
+      this.animationFrameId = requestAnimationFrame(() => this.animateParticles(board));
     }
   }
 
@@ -671,7 +684,7 @@ class Game {
     clearInterval(this.timerId);
     const msg = `Game Over! Player ${winner} wins by ${reason}!`;
     this.ui.winner.textContent = msg;
-    this.renderer.triggerCelebration(winner);
+    this.renderer.triggerCelebration(winner, this.board);
     this.renderer.showToast(msg);
   }
 }
